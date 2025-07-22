@@ -1,0 +1,19 @@
+{
+  "name": "twitch-weekly-recap-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Twitch Weekly Recap Website with Twitch authentication",
+  "main": "backend/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "handlebars": "^4.7.8",
+    "passport": "^0.7.0",
+    "passport-oauth": "^1.0.0",
+    "request": "^2.88.2"
+  }
+}
