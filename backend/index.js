@@ -26,6 +26,8 @@ app.use('/api', userRoutes);
 app.use('/api', twitchRoutes);
 app.use('/api', subscriptionRoutes);
 
+app.set('trust proxy', 1);
+
 app.get('/', function (req, res) {
     if (req.session?.passport?.user) {
         res.redirect(`${FRONTEND_BASE_URL}/dashboard`);

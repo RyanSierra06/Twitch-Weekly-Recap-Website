@@ -47,3 +47,4 @@ passport.use('twitch', new OAuth2Strategy({
 }));
 
 export default passport;
+
