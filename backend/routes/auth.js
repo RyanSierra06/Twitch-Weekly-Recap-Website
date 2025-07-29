@@ -13,8 +13,8 @@ router.get('/twitch', passport.authenticate('twitch', {
 }));
 
 router.get('/twitch/callback', passport.authenticate('twitch', {
-    successRedirect: '/',
-    failureRedirect: '/'
+    successRedirect: `${process.env.FRONTEND_BASE_URL}/dashboard`,
+    failureRedirect: `${process.env.FRONTEND_BASE_URL}/`
 }));
 
 router.get('/logout', (req, res) => {
