@@ -20,13 +20,17 @@ mongoStore.on('error', (error) => {
 
 export default session({
   secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
+  resave: true,
+  saveUninitialized: true,
   store: mongoStore,
+  name: 'connect.sid',
+  rolling: true, // Extend session on each request
   cookie: {
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    secure: false,
     maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    path: '/'
   }
 });
 

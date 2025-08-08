@@ -133,29 +133,8 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [authLoading]);
 
-  // Give more time for OAuth redirect to complete
-  // Only show NotFound after a longer delay to handle OAuth race conditions
-  const [showNotFound, setShowNotFound] = useState(false);
-  
-  useEffect(() => {
-    console.log('Dashboard: Auth state changed:', { authLoading, authUser: !!authUser });
-    
-    if (!authLoading && !authUser) {
-      console.log('Dashboard: No user and not loading, setting timer for NotFound');
-      // Wait 3 seconds before showing NotFound to allow OAuth to complete
-      const timer = setTimeout(() => {
-        console.log('Dashboard: Timer expired, showing NotFound');
-        setShowNotFound(true);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    } else {
-      console.log('Dashboard: User found or still loading, hiding NotFound');
-      setShowNotFound(false);
-    }
-  }, [authLoading, authUser]);
-  
-  if (showNotFound) {
+  // Simplified logic to prevent flickering
+  if (!authLoading && !authUser) {
     return <NotFound />;
   }
 

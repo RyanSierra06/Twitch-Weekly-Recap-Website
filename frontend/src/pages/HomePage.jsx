@@ -22,24 +22,8 @@ export default function HomePage() {
                 </section>
 
                 <section className="text-center space-y-5">
-                    {!loading && !user && (
-                        <div
-                            className="bg-[#a471cf] px-9 py-0 rounded-lg shadow-md border-white hover:transform hover:scale-105 hover:shadow-xl transition-all duration-250 ease-in-out cursor-pointer w-fit mx-auto"
-                            onClick={login}
-                        >
-                            <div className="flex items-center space-x-1">
-                                <img
-                                    src="/HomePageIcon.png"
-                                    alt="Twitch Icon"
-                                    className="w-9 h-13 object-contain"
-                                />
-                                <p className="text-[1.05rem] text-white p-5 font-semibold rounded-md">
-                                    Login
-                                </p>
-                            </div>
-                        </div>
-                    )}
-                    {!loading && user && (
+                    {user ? (
+                        // User is logged in - show logout button
                         <div
                             className="bg-[#a471cf] px-9 py-0 rounded-lg shadow-md border-white hover:transform hover:scale-105 hover:shadow-xl transition-all duration-250 ease-in-out cursor-pointer w-fit mx-auto"
                             onClick={logout}
@@ -52,6 +36,23 @@ export default function HomePage() {
                                 />
                                 <p className="text-[1.05rem] text-white p-5 font-semibold rounded-md">
                                     Logout
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        // User is not logged in (or still loading) - always show login button
+                        <div
+                            className="bg-[#a471cf] px-9 py-0 rounded-lg shadow-md border-white hover:transform hover:scale-105 hover:shadow-xl transition-all duration-250 ease-in-out cursor-pointer w-fit mx-auto"
+                            onClick={login}
+                        >
+                            <div className="flex items-center space-x-1">
+                                <img
+                                    src="/HomePageIcon.png"
+                                    alt="Twitch Icon"
+                                    className="w-9 h-13 object-contain"
+                                />
+                                <p className="text-[1.05rem] text-white p-5 font-semibold rounded-md">
+                                    Login
                                 </p>
                             </div>
                         </div>

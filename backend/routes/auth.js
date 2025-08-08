@@ -13,14 +13,21 @@ router.get('/twitch', passport.authenticate('twitch', {
 }));
 
 router.get('/twitch/callback', (req, res, next) => {
+    console.log('=== OAuth Callback Started ===');
+    console.log('Request URL:', req.url);
+    console.log('Request headers:', req.headers);
+    console.log('Session before OAuth:', req.session);
+    
     passport.authenticate('twitch', (err, user, info) => {
         console.log('=== OAuth Callback Debug ===');
         console.log('Error:', err);
         console.log('User:', user);
         console.log('Info:', info);
+        console.log('Session after passport.authenticate:', req.session);
         
         if (err) {
             console.log('OAuth error, redirecting to home');
+            console.error('OAuth Error Details:', err);
             return res.redirect(`${process.env.FRONTEND_BASE_URL}/`);
         }
         
@@ -32,16 +39,33 @@ router.get('/twitch/callback', (req, res, next) => {
         req.logIn(user, (err) => {
             if (err) {
                 console.log('Login error:', err);
+                console.error('Login Error Details:', err);
                 return res.redirect(`${process.env.FRONTEND_BASE_URL}/`);
             }
             
             console.log('=== OAuth Success ===');
-            console.log('Session:', req.session);
-            console.log('User:', req.user);
-            console.log('Passport user:', req.session?.passport?.user);
+            console.log('Session after logIn:', req.session);
+            console.log('User after logIn:', req.user);
+            console.log('Passport user after logIn:', req.session?.passport?.user);
+            console.log('Session ID:', req.sessionID);
             console.log('Redirecting to dashboard...');
             
-            res.redirect(`${process.env.FRONTEND_BASE_URL}/dashboard`);
+            // Save session and redirect
+            req.session.save((err) => {
+                if (err) {
+                    console.error('Session save error:', err);
+                    return res.redirect(`${process.env.FRONTEND_BASE_URL}/`);
+                }
+                
+                console.log('Session saved successfully');
+                console.log('Final Session ID:', req.sessionID);
+                console.log('Final Session:', req.session);
+                
+                // Force session to be saved to store
+                req.session.touch();
+                
+                res.redirect(`${process.env.FRONTEND_BASE_URL}/dashboard`);
+            });
         });
     })(req, res, next);
 });
