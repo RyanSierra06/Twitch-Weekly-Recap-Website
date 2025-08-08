@@ -17,6 +17,8 @@ router.get('/twitch/callback', (req, res, next) => {
     console.log('Request URL:', req.url);
     console.log('Request headers:', req.headers);
     console.log('Session before OAuth:', req.session);
+    console.log('FRONTEND_BASE_URL:', process.env.FRONTEND_BASE_URL);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
     
     passport.authenticate('twitch', (err, user, info) => {
         console.log('=== OAuth Callback Debug ===');
@@ -63,6 +65,17 @@ router.get('/twitch/callback', (req, res, next) => {
                 
                 // Force session to be saved to store
                 req.session.touch();
+                
+                // For production, ensure session cookie is properly set for cross-domain
+                if (process.env.NODE_ENV === 'production') {
+                    console.log('Production: Setting cross-domain session cookie');
+                    console.log('Session ID for cookie:', req.sessionID);
+                    console.log('Frontend URL:', process.env.FRONTEND_BASE_URL);
+                    
+                    // Ensure proper CORS headers for cross-domain cookies
+                    res.setHeader('Access-Control-Allow-Credentials', 'true');
+                    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_BASE_URL);
+                }
                 
                 res.redirect(`${process.env.FRONTEND_BASE_URL}/dashboard`);
             });

@@ -26,8 +26,8 @@ export default session({
   name: 'connect.sid',
   rolling: true, // Extend session on each request
   cookie: {
-    sameSite: 'lax',
-    secure: false,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
     maxAge: 24 * 60 * 60 * 1000,
     httpOnly: true,
     path: '/'

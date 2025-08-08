@@ -10,10 +10,11 @@ export function AuthProvider({ children }) {
   const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
   const fetchUser = useCallback(async (retryCount = 0) => {
-    const maxRetries = 3;
+    const maxRetries = 5; // Increased for production reliability
     
     try {
       console.log(`AuthContext: Attempting to fetch user (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      console.log(`AuthContext: Backend URL: ${BACKEND_BASE_URL}`);
       
       const res = await fetch(`${BACKEND_BASE_URL}/api/user`, { 
         credentials: 'include',
@@ -32,7 +33,7 @@ export function AuthProvider({ children }) {
       } else {
         // If we get a 401 and we're still within retry limit, try again
         if (res.status === 401 && retryCount < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, retryCount), 4000);
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Increased max delay
           console.log(`AuthContext: Got 401, retrying in ${delay}ms (${retryCount + 1}/${maxRetries})`);
           setTimeout(() => {
             fetchUser(retryCount + 1);
@@ -48,7 +49,7 @@ export function AuthProvider({ children }) {
       console.log('AuthContext: Network error:', error);
       // If there's a network error and we're still within retry limit, try again
       if (retryCount < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 4000);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 8000); // Increased max delay
         console.log(`AuthContext: Network error, retrying in ${delay}ms (${retryCount + 1}/${maxRetries})`);
         setTimeout(() => {
           fetchUser(retryCount + 1);
@@ -66,7 +67,7 @@ export function AuthProvider({ children }) {
     // Add initial delay for OAuth redirect case
     const initialDelay = setTimeout(() => {
       fetchUser();
-    }, 500); // Reduced to 500ms for faster response
+    }, 1000); // Increased to 1 second for production stability
     
     // Add a timeout to ensure loading doesn't get stuck
     const timeout = setTimeout(() => {
@@ -76,7 +77,7 @@ export function AuthProvider({ children }) {
         setLoading(false);
         setInitialized(true);
       }
-    }, 5000); // Reduced to 5 seconds
+    }, 10000); // Increased to 10 seconds for production
     
     return () => {
       clearTimeout(timeout);

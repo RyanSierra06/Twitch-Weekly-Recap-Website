@@ -21,9 +21,21 @@ const corsOptions = {
     const allowedOrigins = [
       FRONTEND_BASE_URL,
       process.env.FRONTEND_BASE_URL,
-      // Add any additional allowed origins for production
-      ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://twitch-weekly-recap.vercel.app',
+      'https://twitch-weekly-recap-website.onrender.com'
     ];
+    
+    console.log('CORS check - Origin:', origin);
+    console.log('CORS check - Allowed origins:', allowedOrigins);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    
+    // In production, be more permissive for debugging
+    if (process.env.NODE_ENV === 'production') {
+      console.log('Production CORS: Allowing origin:', origin);
+      return callback(null, true);
+    }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -74,7 +86,14 @@ app.get('/health', function (req, res) {
         status: 'ok', 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
-        frontendUrl: FRONTEND_BASE_URL
+        frontendUrl: FRONTEND_BASE_URL,
+        backendUrl: process.env.TWITCH_CALLBACK_URL,
+        nodeEnv: process.env.NODE_ENV,
+        corsOrigins: [
+            FRONTEND_BASE_URL,
+            process.env.FRONTEND_BASE_URL,
+            ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+        ]
     });
 });
 
@@ -100,6 +119,23 @@ app.get('/', function (req, res) {
     } else {
         console.log('No user, redirecting to frontend');
         res.redirect(FRONTEND_BASE_URL);
+    }
+});
+
+// Error handling middleware for production
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    
+    if (process.env.NODE_ENV === 'production') {
+        res.status(500).json({ 
+            error: 'Internal server error',
+            message: 'Something went wrong on our end'
+        });
+    } else {
+        res.status(500).json({ 
+            error: err.message,
+            stack: err.stack
+        });
     }
 });
 
