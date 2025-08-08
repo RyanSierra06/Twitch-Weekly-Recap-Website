@@ -16,6 +16,17 @@ app.use(session);
 app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Add session debugging middleware
+app.use((req, res, next) => {
+    console.log('=== Session Debug ===');
+    console.log('Session ID:', req.sessionID);
+    console.log('Session:', req.session);
+    console.log('User:', req.user);
+    console.log('Passport user:', req.session?.passport?.user);
+    next();
+});
+
 app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true

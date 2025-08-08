@@ -12,10 +12,39 @@ router.get('/twitch', passport.authenticate('twitch', {
     ]
 }));
 
-router.get('/twitch/callback', passport.authenticate('twitch', {
-    successRedirect: `${process.env.FRONTEND_BASE_URL}/dashboard`,
-    failureRedirect: `${process.env.FRONTEND_BASE_URL}/`
-}));
+router.get('/twitch/callback', (req, res, next) => {
+    passport.authenticate('twitch', (err, user, info) => {
+        console.log('=== OAuth Callback Debug ===');
+        console.log('Error:', err);
+        console.log('User:', user);
+        console.log('Info:', info);
+        
+        if (err) {
+            console.log('OAuth error, redirecting to home');
+            return res.redirect(`${process.env.FRONTEND_BASE_URL}/`);
+        }
+        
+        if (!user) {
+            console.log('No user from OAuth, redirecting to home');
+            return res.redirect(`${process.env.FRONTEND_BASE_URL}/`);
+        }
+        
+        req.logIn(user, (err) => {
+            if (err) {
+                console.log('Login error:', err);
+                return res.redirect(`${process.env.FRONTEND_BASE_URL}/`);
+            }
+            
+            console.log('=== OAuth Success ===');
+            console.log('Session:', req.session);
+            console.log('User:', req.user);
+            console.log('Passport user:', req.session?.passport?.user);
+            console.log('Redirecting to dashboard...');
+            
+            res.redirect(`${process.env.FRONTEND_BASE_URL}/dashboard`);
+        });
+    })(req, res, next);
+});
 
 router.get('/logout', (req, res) => {
     req.logout(err => {
