@@ -6,7 +6,18 @@ const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
 router.get('/user', function (req, res) {
     if(req.session && req.session.passport && req.session.passport.user) {
-        res.json(req.session.passport.user);
+        // Return the user data in a consistent format
+        const user = req.session.passport.user;
+        res.json({
+            id: user.id,
+            login: user.login,
+            display_name: user.display_name,
+            email: user.email,
+            profile_image_url: user.profile_image_url,
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
+            created_at: user.created_at
+        });
     } else {
         res.status(401).json({ error: 'Not authenticated' });
     }
@@ -15,17 +26,12 @@ router.get('/user', function (req, res) {
 router.get('/followed', async function (req, res) {
     if(req.session && req.session.passport && req.session.passport.user && req.session.passport.user.accessToken) {
         const userSession = req.session.passport.user;
-        let userId = null;
-        if (userSession.id) {
-            userId = userSession.id;
-        } else if (userSession.data && Array.isArray(userSession.data) && userSession.data[0] && userSession.data[0].id) {
-            userId = userSession.data[0].id;
-        } else if (userSession.user_id) {
-            userId = userSession.user_id;
-        }
+        const userId = userSession.id;
+        
         if (!userId) {
             return res.status(400).json({ error: 'User ID not found in session' });
         }
+        
         try {
             const accessToken = userSession.accessToken;
             const cacheKey = `followed_${userId}`;
@@ -57,6 +63,7 @@ router.get('/followed', async function (req, res) {
             });
             res.json({ data: channelsWithProfiles });
         } catch (error) {
+            console.error('Error fetching followed streamers:', error);
             res.status(500).json({ error: 'Failed to fetch followed streamers' });
         }
     } else {
@@ -67,17 +74,12 @@ router.get('/followed', async function (req, res) {
 router.get('/streamer-data', async function (req, res) {
     if(req.session && req.session.passport && req.session.passport.user && req.session.passport.user.accessToken) {
         const userSession = req.session.passport.user;
-        let userId = null;
-        if (userSession.id) {
-            userId = userSession.id;
-        } else if (userSession.data && Array.isArray(userSession.data) && userSession.data[0] && userSession.data[0].id) {
-            userId = userSession.data[0].id;
-        } else if (userSession.user_id) {
-            userId = userSession.user_id;
-        }
+        const userId = userSession.id;
+        
         if (!userId) {
             return res.status(400).json({ error: 'User ID not found in session' });
         }
+        
         try {
             const accessToken = userSession.accessToken;
             const cacheKey = `followed_${userId}`;
@@ -120,6 +122,7 @@ router.get('/streamer-data', async function (req, res) {
                 clips: {}
             });
         } catch (error) {
+            console.error('Error fetching streamer data:', error);
             res.status(500).json({ error: 'Failed to fetch streamer data' });
         }
     } else {

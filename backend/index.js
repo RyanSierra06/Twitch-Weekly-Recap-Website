@@ -48,6 +48,16 @@ app.use(session);
 app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Session debugging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session data:', req.session);
+  console.log('Passport user:', req.session?.passport?.user);
+  next();
+});
+
 app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true
@@ -84,6 +94,7 @@ app.use((req, res) => {
 const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Frontend URL: ${FRONTEND_BASE_URL}`);
 });
 
 // Graceful shutdown
