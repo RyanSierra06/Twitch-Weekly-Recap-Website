@@ -3,6 +3,7 @@ import MongoStore from 'connect-mongo';
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const MONGO_URI = process.env.MONGO_URI;
+const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
 if (!SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is not defined');
@@ -26,6 +27,7 @@ export default session({
     secure: process.env.NODE_ENV === 'production',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     httpOnly: true,
+    domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser handle domain
   },
   name: 'connect.sid' // Ensure consistent cookie name
 });

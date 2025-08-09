@@ -13,9 +13,18 @@ import userRoutes from './routes/user.js';
 import twitchRoutes from './routes/twitch.js';
 import subscriptionRoutes from './routes/subscription.js';
 
+// Validate required environment variables
+const requiredEnvVars = ['FRONTEND_BASE_URL', 'SESSION_SECRET', 'MONGO_URI', 'TWITCH_CLIENT_ID', 'TWITCH_SECRET', 'TWITCH_CALLBACK_URL'];
+for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+        console.error(`Missing required environment variable: ${envVar}`);
+        process.exit(1);
+    }
+}
+
 const app = express();
-const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 const PORT = process.env.PORT || 4000;
+const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
 // Production optimizations
 app.use(helmet({
@@ -59,8 +68,25 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-    origin: FRONTEND_BASE_URL,
-    credentials: true
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Allow your frontend domain
+        if (origin === FRONTEND_BASE_URL) {
+            return callback(null, true);
+        }
+        
+        // Allow localhost for development
+        if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) {
+            return callback(null, true);
+        }
+        
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 app.use('/auth', authRoutes);
