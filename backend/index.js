@@ -26,6 +26,9 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
+// Trust proxy for proper cookie handling in production
+app.set('trust proxy', 1);
+
 // Production optimizations
 app.use(helmet({
   contentSecurityPolicy: {
@@ -53,24 +56,11 @@ app.use(limiter);
 // Connect to MongoDB
 connectDB().catch(console.error);
 
-app.use(session);
-app.use(express.static('public'));
-app.use(passport.initialize());
-app.use(passport.session());
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Trust proxy for proper cookie handling in production
-app.set('trust proxy', 1);
-
-// Session debugging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Session ID:', req.sessionID);
-  console.log('Session data:', req.session);
-  console.log('Passport user:', req.session?.passport?.user);
-  console.log('Cookies:', req.headers.cookie);
-  next();
-});
-
+// CORS configuration - MUST come before session
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
@@ -90,15 +80,41 @@ app.use(cors({
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cookie'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 
+// Handle preflight requests
+app.options('*', cors());
+
+// Session middleware - MUST come after CORS
+app.use(session);
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Static files
+app.use(express.static('public'));
+
+// Session debugging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session data:', req.session);
+  console.log('Passport user:', req.session?.passport?.user);
+  console.log('Cookies:', req.headers.cookie);
+  console.log('Origin:', req.headers.origin);
+  console.log('Referer:', req.headers.referer);
+  next();
+});
+
+// Routes
 app.use('/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', twitchRoutes);
 app.use('/api', subscriptionRoutes);
-
-app.set('trust proxy', 1);
 
 app.get('/', function (req, res) {
     if (req.session?.passport?.user) {
@@ -114,13 +130,14 @@ app.get('/api/auth-status', (req, res) => {
         authenticated: req.isAuthenticated(),
         user: req.user || null,
         sessionID: req.sessionID,
-        sessionExists: !!req.session
+        sessionExists: !!req.session,
+        cookies: req.headers.cookie
     });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error:', err.stack);
   res.status(500).json({ 
     error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
   });
@@ -135,6 +152,7 @@ const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Frontend URL: ${FRONTEND_BASE_URL}`);
+    console.log(`Trust proxy: ${app.get('trust proxy')}`);
 });
 
 // Graceful shutdown
@@ -155,8 +173,8 @@ const gracefulShutdown = async (signal) => {
   });
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {

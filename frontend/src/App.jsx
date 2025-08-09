@@ -4,6 +4,7 @@ import NavBar from './components/NavBar'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
+import LoginError from './pages/LoginError'
 
 function AppRoutes() {
     return (
@@ -13,6 +14,7 @@ function AppRoutes() {
               <Route path="/" element={<HomePage />}/>
               <Route path="/dashboard" element={<Dashboard />}/>
               <Route path="/profile" element={<Profile />}/>
+              <Route path="/login-error" element={<LoginError />} />
               <Route path="*" element={<NotFound />} />
           </Routes>
       </>

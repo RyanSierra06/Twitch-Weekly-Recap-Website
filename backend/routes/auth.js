@@ -13,37 +13,69 @@ router.get('/twitch', passport.authenticate('twitch', {
     ]
 }));
 
-router.get('/twitch/callback', passport.authenticate('twitch', {
-    failureRedirect: `${FRONTEND_BASE_URL}/login-error`
-}), (req, res) => {
-    console.log('OAuth callback successful, user:', req.user);
-    console.log('Session after OAuth:', req.session);
-    
-    // Ensure session is saved before redirect
-    req.session.save((err) => {
+router.get('/twitch/callback', (req, res, next) => {
+    passport.authenticate('twitch', { session: false }, (err, user, info) => {
         if (err) {
-            console.error('Session save error:', err);
-            return res.redirect(`${FRONTEND_BASE_URL}/login-error`);
+            console.error('Passport authentication error:', err);
+            return res.redirect(`${FRONTEND_BASE_URL}/login-error?error=auth_failed`);
         }
         
-        console.log('Session saved successfully, redirecting to dashboard');
-        console.log('Final session data:', req.session);
+        if (!user) {
+            console.error('No user returned from Twitch OAuth');
+            return res.redirect(`${FRONTEND_BASE_URL}/login-error?error=no_user`);
+        }
         
-        // Set a custom header to indicate successful login
-        res.setHeader('X-Auth-Status', 'success');
-        
-        // Successful authentication - redirect to frontend dashboard
-        res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
-    });
+        // Manually log in the user
+        req.login(user, (loginErr) => {
+            if (loginErr) {
+                console.error('Login error:', loginErr);
+                return res.redirect(`${FRONTEND_BASE_URL}/login-error?error=login_failed`);
+            }
+            
+            console.log('User logged in successfully:', user);
+            console.log('Session after login:', req.session);
+            
+            // Save session explicitly
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('Session save error:', saveErr);
+                    return res.redirect(`${FRONTEND_BASE_URL}/login-error?error=session_save_failed`);
+                }
+                
+                console.log('Session saved successfully');
+                console.log('Final session data:', req.session);
+                console.log('Session ID:', req.sessionID);
+                
+                // Set a success cookie for the frontend
+                res.cookie('auth_success', 'true', {
+                    maxAge: 60000, // 1 minute
+                    httpOnly: false,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+                    domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+                });
+                
+                // Redirect to frontend dashboard
+                res.redirect(`${FRONTEND_BASE_URL}/dashboard?auth=success&session=${req.sessionID}`);
+            });
+        });
+    })(req, res, next);
 });
 
 router.get('/logout', (req, res) => {
-    req.logout(err => {
+    req.logout((err) => {
         if (err) {
+            console.error('Logout error:', err);
             return res.status(500).json({ error: 'Error during logout' });
         }
-        req.session.destroy(() => {
+        
+        req.session.destroy((destroyErr) => {
+            if (destroyErr) {
+                console.error('Session destroy error:', destroyErr);
+            }
+            
             res.clearCookie('connect.sid');
+            res.clearCookie('auth_success');
             res.json({ message: 'Logged out successfully' });
         });
     });
