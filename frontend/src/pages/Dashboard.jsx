@@ -133,7 +133,6 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [authLoading]);
 
-  // Simplified logic to prevent flickering
   if (!authLoading && !authUser) {
     return <NotFound />;
   }

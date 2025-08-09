@@ -4,35 +4,28 @@ import MongoStore from 'connect-mongo';
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const MONGO_URI = process.env.MONGO_URI;
 
-const mongoStore = MongoStore.create({
-  mongoUrl: MONGO_URI,
-  ttl: 24 * 60 * 60,
-});
+if (!SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is not defined');
+}
 
-// Add MongoDB connection debugging
-mongoStore.on('connected', () => {
-  console.log('MongoDB session store connected');
-});
-
-mongoStore.on('error', (error) => {
-  console.error('MongoDB session store error:', error);
-});
+if (!MONGO_URI) {
+  throw new Error('MONGO_URI environment variable is not defined');
+}
 
 export default session({
   secret: SESSION_SECRET,
-  resave: true,
-  saveUninitialized: true,
-  store: mongoStore,
-  name: 'connect.sid',
-  rolling: true, // Extend session on each request
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: MONGO_URI,
+    ttl: 7 * 24 * 60 * 60, // 7 days in seconds
+    autoRemove: 'native', // Enable automatic removal of expired sessions
+  }),
   cookie: {
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     httpOnly: true,
-    path: '/'
   }
 });
-
-
 

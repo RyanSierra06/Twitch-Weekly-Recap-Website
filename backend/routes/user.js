@@ -5,16 +5,9 @@ const router = express.Router();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
 router.get('/user', function (req, res) {
-    console.log('=== User Route Debug ===');
-    console.log('Session ID:', req.sessionID);
-    console.log('Session:', req.session);
-    console.log('Passport user:', req.session?.passport?.user);
-    
     if(req.session && req.session.passport && req.session.passport.user) {
-        console.log('User authenticated, returning data');
         res.json(req.session.passport.user);
     } else {
-        console.log('User not authenticated, returning 401');
         res.status(401).json({ error: 'Not authenticated' });
     }
 });

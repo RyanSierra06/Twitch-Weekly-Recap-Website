@@ -1,8 +1,12 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import session from './config/session.js';
 import passport from './config/passport.js';
+import { connectDB, disconnectDB } from './config/database.js';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
@@ -11,67 +15,43 @@ import subscriptionRoutes from './routes/subscription.js';
 
 const app = express();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
+const PORT = process.env.PORT || 4000;
 
-// Configure CORS FIRST (before session middleware)
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      FRONTEND_BASE_URL,
-      process.env.FRONTEND_BASE_URL,
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://twitch-weekly-recap.vercel.app',
-      'https://twitch-weekly-recap-website.onrender.com'
-    ];
-    
-    console.log('CORS check - Origin:', origin);
-    console.log('CORS check - Allowed origins:', allowedOrigins);
-    console.log('NODE_ENV:', process.env.NODE_ENV);
-    
-    // In production, be more permissive for debugging
-    if (process.env.NODE_ENV === 'production') {
-      console.log('Production CORS: Allowing origin:', origin);
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
+// Production optimizations
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
   },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-  exposedHeaders: ['Set-Cookie']
-};
+}));
 
-app.use(cors(corsOptions));
+app.use(compression());
 
-// Trust proxy for session cookies
-app.set('trust proxy', 1);
+// Rate limiting for production
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
 
-// Session middleware AFTER CORS
+// Connect to MongoDB
+connectDB().catch(console.error);
+
 app.use(session);
 app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Add session debugging middleware
-app.use((req, res, next) => {
-    console.log('=== Session Debug ===');
-    console.log('Session ID:', req.sessionID);
-    console.log('Session exists:', !!req.session);
-    console.log('Session passport exists:', !!req.session?.passport);
-    console.log('Session passport user exists:', !!req.session?.passport?.user);
-    console.log('User object exists:', !!req.user);
-    console.log('Request cookies:', req.headers.cookie);
-    next();
-});
+app.use(cors({
+    origin: FRONTEND_BASE_URL,
+    credentials: true
+}));
 
 app.use('/auth', authRoutes);
 app.use('/api', userRoutes);
@@ -80,66 +60,60 @@ app.use('/api', subscriptionRoutes);
 
 app.set('trust proxy', 1);
 
-// Health check endpoint
-app.get('/health', function (req, res) {
-    res.json({ 
-        status: 'ok', 
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV,
-        frontendUrl: FRONTEND_BASE_URL,
-        backendUrl: process.env.TWITCH_CALLBACK_URL,
-        nodeEnv: process.env.NODE_ENV,
-        corsOrigins: [
-            FRONTEND_BASE_URL,
-            process.env.FRONTEND_BASE_URL,
-            ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
-        ]
-    });
-});
-
-// Session test endpoint
-app.get('/test-session', function (req, res) {
-    res.json({
-        sessionID: req.sessionID,
-        hasSession: !!req.session,
-        hasPassport: !!req.session?.passport,
-        hasUser: !!req.session?.passport?.user,
-        userData: req.session?.passport?.user || null
-    });
-});
-
 app.get('/', function (req, res) {
-    console.log('=== Root Route Debug ===');
-    console.log('Session exists:', !!req.session);
-    console.log('Passport user exists:', !!req.session?.passport?.user);
-    
     if (req.session?.passport?.user) {
-        console.log('User authenticated, redirecting to dashboard');
         res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
     } else {
-        console.log('No user, redirecting to frontend');
         res.redirect(FRONTEND_BASE_URL);
     }
 });
 
-// Error handling middleware for production
+// Error handling middleware
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    
-    if (process.env.NODE_ENV === 'production') {
-        res.status(500).json({ 
-            error: 'Internal server error',
-            message: 'Something went wrong on our end'
-        });
-    } else {
-        res.status(500).json({ 
-            error: err.message,
-            stack: err.stack
-        });
-    }
+  console.error(err.stack);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+  });
 });
 
-const PORT = process.env.PORT;
-app.listen(PORT, () => {
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Graceful shutdown
+const gracefulShutdown = async (signal) => {
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  
+  server.close(async () => {
+    console.log('HTTP server closed.');
+    
+    try {
+      await disconnectDB();
+      console.log('Database disconnected.');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during shutdown:', error);
+      process.exit(1);
+    }
+  });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
