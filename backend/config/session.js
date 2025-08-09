@@ -23,11 +23,11 @@ export default session({
     autoRemove: 'native', // Enable automatic removal of expired sessions
   }),
   cookie: {
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none', // Required for cross-domain cookies
+    secure: true, // Required when sameSite is 'none'
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
-    httpOnly: true,
-    domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Let browser handle domain
+    httpOnly: false, // Allow JavaScript access for debugging
+    path: '/',
   },
   name: 'connect.sid' // Ensure consistent cookie name
 });

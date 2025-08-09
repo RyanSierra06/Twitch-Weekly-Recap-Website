@@ -58,12 +58,16 @@ app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Trust proxy for proper cookie handling in production
+app.set('trust proxy', 1);
+
 // Session debugging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   console.log('Session ID:', req.sessionID);
   console.log('Session data:', req.session);
   console.log('Passport user:', req.session?.passport?.user);
+  console.log('Cookies:', req.headers.cookie);
   next();
 });
 
@@ -102,6 +106,16 @@ app.get('/', function (req, res) {
     } else {
         res.redirect(FRONTEND_BASE_URL);
     }
+});
+
+// Add a route to check authentication status
+app.get('/api/auth-status', (req, res) => {
+    res.json({
+        authenticated: req.isAuthenticated(),
+        user: req.user || null,
+        sessionID: req.sessionID,
+        sessionExists: !!req.session
+    });
 });
 
 // Error handling middleware
