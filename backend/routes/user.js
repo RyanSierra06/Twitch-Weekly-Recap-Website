@@ -130,7 +130,7 @@ router.get('/streamer-data', async function (req, res) {
     }
 });
 
-router.get('/', function (req, res) {
+router.get('/profile', function (req, res) {
     if(req.session && req.session.passport && req.session.passport.user) {
         res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
     } else {
