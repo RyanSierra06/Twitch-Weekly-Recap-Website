@@ -23,11 +23,10 @@
     "helmet": "^7.1.0",
     "mongoose": "^8.17.1",
     "passport": "^0.7.0",
-    "passport-oauth": "^1.0.0",
-    "requests": "^0.3.0"
+    "passport-oauth": "^1.0.0"
   },
   "devDependencies": {
-    "node-fetch": "^3.3.2",
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "node-fetch": "^3.3.2"
   }
 }
