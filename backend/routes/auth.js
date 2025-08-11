@@ -13,8 +13,8 @@ router.get('/twitch', passport.authenticate('twitch', {
 }));
 
 router.get('/twitch/callback', passport.authenticate('twitch', {
-    successRedirect: '/',
-    failureRedirect: '/'
+    successRedirect: process.env.FRONTEND_BASE_URL + '/dashboard',
+    failureRedirect: process.env.FRONTEND_BASE_URL + '/?error=auth_failed'
 }));
 
 router.get('/logout', (req, res) => {
@@ -23,8 +23,13 @@ router.get('/logout', (req, res) => {
             return res.status(500).json({ error: 'Error during logout' });
         }
         req.session.destroy(() => {
-            res.clearCookie('connect.sid');
-            res.json({ message: 'Logged out successfully' });
+            res.clearCookie('connect.sid', {
+                path: '/',
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+            });
+            res.redirect(process.env.FRONTEND_BASE_URL);
         });
     });
 });

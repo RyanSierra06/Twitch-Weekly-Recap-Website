@@ -12,13 +12,15 @@ OAuth2Strategy.prototype.userProfile = function(accessToken, done) {
         method: 'GET',
         headers: {
             'Client-ID': TWITCH_CLIENT_ID,
-            'Accept': 'application/vnd.twitchtv.v5+json',
             'Authorization': 'Bearer ' + accessToken
         }
     };
     request(options, function (error, response, body) {
         if (response && response.statusCode === 200) {
-            done(null, JSON.parse(body));
+            const data = JSON.parse(body);
+            // Extract the first user from the data array
+            const user = data.data && data.data[0] ? data.data[0] : data;
+            done(null, user);
         } else {
             done(JSON.parse(body));
         }

@@ -169,7 +169,7 @@ export default function Dashboard() {
             const isLive = liveStatus[follow.broadcaster_id];
             return (
               <div key={follow.broadcaster_id} className="bg-[#3a2b2f]/80 border border-[#b08b6f] rounded-xl p-6 text-white mb-8">
-                <div className="flex items-center space-x-4 mb-4">
+                <div className="flex items-center space-x-4 mb-4 flex-wrap gap-2">
                   <div 
                     className="relative w-14 h-14 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200"
                     onClick={() => {
@@ -197,7 +197,7 @@ export default function Dashboard() {
                     <div className="text-xl font-bold">{profile ? profile.display_name : follow.broadcaster_name}</div>
                     <div className="text-[#ffc8fe] text-sm">@{follow.broadcaster_login}</div>
                   </div>
-                  <div className="ml-auto flex gap-2">
+                  <div className="ml-auto flex gap-2 flex-wrap">
                     <div className="bg-[#a471cf] text-white px-3 py-1 rounded-lg text-xs font-semibold">Followed {format(new Date(follow.followed_at), 'MMM d, yyyy')}</div>
                     <div className="bg-[#ffc8fe] text-[#45323f] px-3 py-1 rounded-lg text-xs font-semibold">
                       {(() => {

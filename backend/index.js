@@ -31,13 +31,15 @@ app.use(helmet({
 
 app.use(compression());
 
-// Rate limiting for production
+// Rate limiting - more generous for web applications
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs (much more generous)
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: true, // Don't count successful requests
+  skipFailedRequests: false, // Count failed requests
 });
 app.use(limiter);
 
@@ -50,8 +52,21 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(cors({
     origin: FRONTEND_BASE_URL,
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    exposedHeaders: ['Set-Cookie']
 }));
+
+// Debug middleware for session tracking
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Cookies:', req.headers.cookie);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session data:', req.session);
+  console.log('Passport user:', req.user);
+  next();
+});
 
 app.use('/auth', authRoutes);
 app.use('/api', userRoutes);
@@ -61,19 +76,35 @@ app.use('/api', subscriptionRoutes);
 app.set('trust proxy', 1);
 
 app.get('/', function (req, res) {
-    if (req.session?.passport?.user) {
+    if (req.session?.passport?.user || req.user) {
         res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
     } else {
         res.redirect(FRONTEND_BASE_URL);
     }
 });
 
+// Authentication status endpoint
+app.get('/auth/status', (req, res) => {
+    if (req.session?.passport?.user || req.user) {
+        res.json({ 
+            authenticated: true, 
+            user: req.session?.passport?.user || req.user 
+        });
+    } else {
+        res.json({ authenticated: false });
+    }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
-  });
+  
+  // Check if headers have already been sent
+  if (!res.headersSent) {
+    res.status(500).json({ 
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+    });
+  }
 });
 
 // 404 handler
@@ -115,5 +146,5 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  // Don't exit immediately, just log the error
 });

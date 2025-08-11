@@ -6,7 +6,7 @@ import { formatClipDuration, parseTwitchDuration } from '../../utils/twitchForma
 export default function StreamerTimeline({ vods, clipsByVod, expandedDay, setExpandedDay, days}) {
   return (
     <div className="overflow-x-auto">
-      <div className="grid grid-cols-7 gap-3 mb-4 mtxf-6">
+      <div className="flex gap-2 md:gap-3 mb-4 mtxf-6 min-w-max">
         {days.map((day, idx) => {
           const dayKey = format(day, 'yyyy-MM-dd');
           const vodList = vods || [];
@@ -16,7 +16,7 @@ export default function StreamerTimeline({ vods, clipsByVod, expandedDay, setExp
           return (
             <div
               key={dayKey}
-              className={`rounded-lg p-3 min-w-[120px] flex flex-col items-center cursor-pointer transition-all duration-200 border-2
+              className={`rounded-lg p-3 w-[100px] md:w-[120px] flex-shrink-0 flex flex-col items-center cursor-pointer transition-all duration-200 border-2
                ${expanded ? 'border-[#ffc8fe] bg-[#a471cf]/50 shadow-lg' : 'border-transparent bg-[#a471cf]/30'}
                hover:border-[#ffc8fe] hover:bg-[#a471cf]/50`}
               onClick={() => setExpandedDay(expanded ? null : dayKey)}

@@ -14,7 +14,7 @@ if (!MONGO_URI) {
 
 export default session({
   secret: SESSION_SECRET,
-  resave: false,
+  resave: true,
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: MONGO_URI,
@@ -26,6 +26,9 @@ export default session({
     secure: process.env.NODE_ENV === 'production',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     httpOnly: true,
-  }
+    path: '/',
+    domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+  },
+  name: 'connect.sid'
 });
 
