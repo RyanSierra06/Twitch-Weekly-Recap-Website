@@ -5,17 +5,25 @@ const router = express.Router();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
 router.get('/user', function (req, res) {
-    console.log('User endpoint called');
+    console.log('=== USER ENDPOINT CALLED ===');
+    console.log('Request headers:', req.headers);
+    console.log('Session ID:', req.sessionID);
     console.log('Session exists:', !!req.session);
     console.log('Session passport exists:', !!(req.session && req.session.passport));
     console.log('Session passport user exists:', !!(req.session && req.session.passport && req.session.passport.user));
-    console.log('Full session data:', req.session);
+    console.log('Full session data:', JSON.stringify(req.session, null, 2));
+    console.log('Passport user:', req.user);
     
     if(req.session && req.session.passport && req.session.passport.user) {
-        console.log('User authenticated, returning user data');
+        console.log('✅ User authenticated, returning user data');
+        console.log('User data being returned:', req.session.passport.user);
         res.json(req.session.passport.user);
     } else {
-        console.log('User not authenticated, returning 401');
+        console.log('❌ User not authenticated, returning 401');
+        console.log('Session check failed:');
+        console.log('- Session exists:', !!req.session);
+        console.log('- Session passport exists:', !!(req.session && req.session.passport));
+        console.log('- Session passport user exists:', !!(req.session && req.session.passport && req.session.passport.user));
         res.status(401).json({ error: 'Not authenticated' });
     }
 });

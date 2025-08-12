@@ -13,31 +13,54 @@ router.get('/twitch', passport.authenticate('twitch', {
 }));
 
 router.get('/twitch/callback', (req, res, next) => {
+    console.log('=== TWITCH CALLBACK STARTED ===');
+    console.log('Session ID before auth:', req.sessionID);
+    console.log('Session before auth:', JSON.stringify(req.session, null, 2));
+    
     passport.authenticate('twitch', (err, user, info) => {
+        console.log('=== PASSPORT AUTHENTICATE CALLBACK ===');
+        console.log('Error:', err);
+        console.log('User:', user);
+        console.log('Info:', info);
+        
         if (err) {
-            console.error('Twitch authentication error:', err);
+            console.error('❌ Twitch authentication error:', err);
             return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
         }
         
         if (!user) {
-            console.error('No user returned from Twitch authentication');
+            console.error('❌ No user returned from Twitch authentication');
             return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
         }
         
+        console.log('✅ User received from Twitch:', user.id);
+        
         req.logIn(user, (loginErr) => {
+            console.log('=== LOGIN CALLBACK ===');
+            console.log('Login error:', loginErr);
+            console.log('Session after login:', JSON.stringify(req.session, null, 2));
+            
             if (loginErr) {
-                console.error('Login error:', loginErr);
+                console.error('❌ Login error:', loginErr);
                 return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
             }
             
+            console.log('✅ Login successful, saving session...');
+            
             // Ensure session is saved before redirecting
             req.session.save((saveErr) => {
+                console.log('=== SESSION SAVE CALLBACK ===');
+                console.log('Session save error:', saveErr);
+                console.log('Final session data:', JSON.stringify(req.session, null, 2));
+                
                 if (saveErr) {
-                    console.error('Session save error:', saveErr);
+                    console.error('❌ Session save error:', saveErr);
                     return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
                 }
                 
-                console.log('Authentication successful for user:', user.id);
+                console.log('✅ Authentication successful for user:', user.id);
+                console.log('✅ Session saved successfully');
+                console.log('✅ Redirecting to dashboard...');
                 res.redirect(process.env.FRONTEND_BASE_URL + '/dashboard');
             });
         });

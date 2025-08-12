@@ -22,7 +22,9 @@ export default function Dashboard() {
 
   const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
-  console.log('Dashboard render - authUser:', authUser, 'authLoading:', authLoading);
+  console.log('📊 Dashboard render - authUser:', authUser, 'authLoading:', authLoading);
+  console.log('📊 Dashboard render - fullyLoading:', fullyLoading);
+  console.log('📊 Dashboard render - profilesLoaded:', profilesLoaded, 'vodsLoaded:', vodsLoaded, 'clipsLoaded:', clipsLoaded);
 
   function getPastNDates(n) {
     return Array.from({ length: n }, (_, i) => subDays(new Date(), n - 1 - i));
@@ -136,19 +138,22 @@ export default function Dashboard() {
   }, [authLoading]);
 
   if (!authLoading && !authUser) {
-    console.log('Dashboard: User not authenticated, showing NotFound');
+    console.log('❌ Dashboard: User not authenticated, showing NotFound');
     return <NotFound />;
   }
 
   // Add a timeout for authentication loading
   if (authLoading) {
-    console.log('Dashboard: Still loading authentication...');
+    console.log('⏳ Dashboard: Still loading authentication...');
   }
 
-  if (error) return <div className="text-red-400 p-10">{error}</div>;
+  if (error) {
+    console.log('❌ Dashboard: Error occurred:', error);
+    return <div className="text-red-400 p-10">{error}</div>;
+  }
 
   if (fullyLoading) {
-    console.log('Dashboard: Fully loading, showing loading spinner');
+    console.log('⏳ Dashboard: Fully loading, showing loading spinner');
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-[#45323f] to-[#4a3234] w-full">
         <span className="relative flex h-12 w-12 mb-4">
@@ -160,7 +165,7 @@ export default function Dashboard() {
     );
   }
 
-  console.log('Dashboard: Rendering dashboard content');
+  console.log('✅ Dashboard: Rendering dashboard content');
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#45323f] to-[#4a3234] w-full pb-10">
