@@ -12,14 +12,42 @@ router.get('/twitch', passport.authenticate('twitch', {
     ]
 }));
 
-router.get('/twitch/callback', passport.authenticate('twitch', {
-    successRedirect: process.env.FRONTEND_BASE_URL + '/dashboard',
-    failureRedirect: process.env.FRONTEND_BASE_URL + '/?error=auth_failed'
-}));
+router.get('/twitch/callback', (req, res, next) => {
+    passport.authenticate('twitch', (err, user, info) => {
+        if (err) {
+            console.error('Twitch authentication error:', err);
+            return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
+        }
+        
+        if (!user) {
+            console.error('No user returned from Twitch authentication');
+            return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
+        }
+        
+        req.logIn(user, (loginErr) => {
+            if (loginErr) {
+                console.error('Login error:', loginErr);
+                return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
+            }
+            
+            // Ensure session is saved before redirecting
+            req.session.save((saveErr) => {
+                if (saveErr) {
+                    console.error('Session save error:', saveErr);
+                    return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
+                }
+                
+                console.log('Authentication successful for user:', user.id);
+                res.redirect(process.env.FRONTEND_BASE_URL + '/dashboard');
+            });
+        });
+    })(req, res, next);
+});
 
 router.get('/logout', (req, res) => {
     req.logout(err => {
         if (err) {
+            console.error('Logout error:', err);
             return res.status(500).json({ error: 'Error during logout' });
         }
         req.session.destroy(() => {

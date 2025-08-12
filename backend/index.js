@@ -51,10 +51,25 @@ app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(cors({
-    origin: FRONTEND_BASE_URL,
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Allow the frontend URL
+        if (origin === FRONTEND_BASE_URL) {
+            return callback(null, true);
+        }
+        
+        // Allow localhost for development
+        if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) {
+            return callback(null, true);
+        }
+        
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
     exposedHeaders: ['Set-Cookie']
 }));
 
@@ -65,6 +80,22 @@ app.use((req, res, next) => {
   console.log('Session ID:', req.sessionID);
   console.log('Session data:', req.session);
   console.log('Passport user:', req.user);
+  
+  // Ensure session is saved after each request
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding) {
+    if (req.session && req.session.save) {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error in middleware:', err);
+        }
+        originalEnd.call(this, chunk, encoding);
+      });
+    } else {
+      originalEnd.call(this, chunk, encoding);
+    }
+  };
+  
   next();
 });
 
@@ -81,6 +112,16 @@ app.get('/', function (req, res) {
     } else {
         res.redirect(FRONTEND_BASE_URL);
     }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    frontendUrl: FRONTEND_BASE_URL
+  });
 });
 
 // Authentication status endpoint

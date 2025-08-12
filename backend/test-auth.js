@@ -5,6 +5,15 @@ const BASE_URL = 'http://localhost:4000';
 async function testAuth() {
   console.log('Testing authentication endpoints...\n');
   
+  // Test health endpoint
+  try {
+    const healthResponse = await fetch(`${BASE_URL}/health`);
+    const healthData = await healthResponse.json();
+    console.log('Health Check:', healthData);
+  } catch (error) {
+    console.error('Error testing health endpoint:', error.message);
+  }
+  
   // Test auth status endpoint
   try {
     const statusResponse = await fetch(`${BASE_URL}/auth/status`);

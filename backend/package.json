@@ -22,8 +22,7 @@
     "helmet": "^7.1.0",
     "mongoose": "^8.17.1",
     "passport": "^0.7.0",
-    "passport-oauth": "^1.0.0",
-    "request": "^2.88.2"
+    "passport-oauth": "^1.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

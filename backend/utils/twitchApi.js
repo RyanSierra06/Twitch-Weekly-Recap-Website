@@ -1,10 +1,9 @@
-import request from 'request';
 import { cache, CACHE_TTL } from './cache.js';
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 
 export function makeTwitchRequest(url, accessToken, cacheKey = null) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         if (cacheKey && cache.has(cacheKey)) {
             const cached = cache.get(cacheKey);
             if (Date.now() - cached.timestamp < CACHE_TTL) {
@@ -14,7 +13,6 @@ export function makeTwitchRequest(url, accessToken, cacheKey = null) {
         }
 
         const options = {
-            url: url,
             method: 'GET',
             headers: {
                 'Client-ID': TWITCH_CLIENT_ID,
@@ -22,23 +20,27 @@ export function makeTwitchRequest(url, accessToken, cacheKey = null) {
             }
         };
 
-        request(options, function (error, response, body) {
-            if (error) {
-                return reject(error);
+        try {
+            const response = await fetch(url, options);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            try {
-                const data = JSON.parse(body);
-                if (cacheKey) {
-                    cache.set(cacheKey, {
-                        data: data,
-                        timestamp: Date.now()
-                    });
-                }
-                resolve(data);
-            } catch (e) {
-                reject(e);
+            
+            const data = await response.json();
+            
+            if (cacheKey) {
+                cache.set(cacheKey, {
+                    data: data,
+                    timestamp: Date.now()
+                });
             }
-        });
+            
+            resolve(data);
+        } catch (error) {
+            console.error('Twitch API request error:', error);
+            reject(error);
+        }
     });
 }
 

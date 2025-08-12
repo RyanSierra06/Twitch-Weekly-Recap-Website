@@ -14,12 +14,13 @@ if (!MONGO_URI) {
 
 export default session({
   secret: SESSION_SECRET,
-  resave: true,
+  resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: MONGO_URI,
     ttl: 7 * 24 * 60 * 60, // 7 days in seconds
     autoRemove: 'native', // Enable automatic removal of expired sessions
+    touchAfter: 24 * 3600, // Only update session once per day
   }),
   cookie: {
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -27,7 +28,7 @@ export default session({
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     httpOnly: true,
     path: '/',
-    domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+    // Remove domain setting to let browser handle it automatically
   },
   name: 'connect.sid'
 });
