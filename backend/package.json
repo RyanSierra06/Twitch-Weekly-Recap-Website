@@ -21,8 +21,10 @@
     "handlebars": "^4.7.8",
     "helmet": "^7.1.0",
     "mongoose": "^8.17.1",
+    "node-fetch": "^3.3.2",
     "passport": "^0.7.0",
-    "passport-oauth": "^1.0.0"
+    "passport-oauth": "^1.0.0",
+    "passport-twitch-new": "^0.0.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
