@@ -49,26 +49,58 @@ app.use(limiter);
 // Connect to MongoDB
 connectDB().catch(console.error);
 
-// CORS configuration - must come before session
+// Enhanced CORS configuration for maximum compatibility
 app.use(cors({
-    origin: FRONTEND_BASE_URL,
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Allow the frontend URL
+        if (origin === FRONTEND_BASE_URL) {
+            return callback(null, true);
+        }
+        
+        // Allow localhost for development
+        if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+            return callback(null, true);
+        }
+        
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
-    exposedHeaders: ['Set-Cookie'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'Cookie', 
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'X-CSRF-Token'
+    ],
+    exposedHeaders: ['Set-Cookie', 'X-Total-Count'],
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
+    maxAge: 86400 // 24 hours
 }));
 
 // Session middleware
 app.use(session);
 
-// Ensure session is initialized
+// Enhanced session validation middleware
 app.use((req, res, next) => {
   if (!req.session) {
     console.error('Session middleware not working properly');
     return res.status(500).json({ error: 'Session not available' });
   }
+  
+  // Log session state for debugging
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session exists:', !!req.session);
+  console.log('Session data:', req.session);
+  console.log('Cookies:', req.headers.cookie);
+  
   next();
 });
 
@@ -76,18 +108,20 @@ app.use((req, res, next) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Static files
-app.use(express.static('public'));
-
-// Debug middleware for session tracking
+// Enhanced passport validation
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Cookies:', req.headers.cookie);
-  console.log('Session ID:', req.sessionID);
-  console.log('Session data:', req.session);
-  console.log('Passport user:', req.user);
+  if (req.user) {
+    console.log('Passport user found:', req.user.id);
+  } else if (req.session?.passport?.user) {
+    console.log('Session passport user found:', req.session.passport.user.id);
+  } else {
+    console.log('No authenticated user found');
+  }
   next();
 });
+
+// Static files
+app.use(express.static('public'));
 
 // Routes
 app.use('/auth', authRoutes);
@@ -136,6 +170,7 @@ app.get('/auth/test-session', (req, res) => {
     
     // Create a test session
     req.session.test = 'session_working';
+    req.session.testTime = new Date().toISOString();
     req.session.save((err) => {
         if (err) {
             console.error('Error saving test session:', err);
@@ -146,14 +181,15 @@ app.get('/auth/test-session', (req, res) => {
         res.json({ 
             message: 'Test session created',
             sessionId: req.sessionID,
-            sessionData: req.session
+            sessionData: req.session,
+            cookies: req.headers.cookie
         });
     });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Error occurred:', err.stack);
   
   // Check if headers have already been sent
   if (!res.headersSent) {
@@ -171,6 +207,7 @@ app.use((req, res) => {
 const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Frontend URL: ${FRONTEND_BASE_URL}`);
 });
 
 // Graceful shutdown
