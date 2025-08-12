@@ -4,7 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import session from './config/session.js';
+import session from 'express-session';
+import sessionConfig from './config/session.js';
 import passport from './config/passport.js';
 import { connectDB, disconnectDB } from './config/database.js';
 
@@ -84,7 +85,7 @@ app.use(limiter);
 // Connect to MongoDB
 connectDB().catch(console.error);
 
-app.use(session);
+app.use(session(sessionConfig));
 app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());

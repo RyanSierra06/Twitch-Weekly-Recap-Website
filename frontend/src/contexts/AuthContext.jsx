@@ -1,151 +1,199 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
+  const [sessionInfo, setSessionInfo] = useState(null);
 
-  const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://twitch-weekly-recap-website.onrender.com';
 
-  console.log('🔧 Frontend AuthContext initialized');
-  console.log('🔧 BACKEND_BASE_URL:', BACKEND_BASE_URL);
-  console.log('🔧 Current user state:', user);
-  console.log('🔧 Current loading state:', loading);
-  console.log('🔧 Current retry count:', retryCount);
-
-  // Check if we're on the dashboard page and force refresh auth if needed
+  // Check for session info in URL parameters
   useEffect(() => {
-    const isOnDashboard = window.location.pathname === '/dashboard';
-    const hasNoUser = !user;
-    const isNotLoading = !loading;
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionParam = urlParams.get('session');
     
-    console.log('🔍 Location check - isOnDashboard:', isOnDashboard, 'hasNoUser:', hasNoUser, 'isNotLoading:', isNotLoading);
-    
-    if (isOnDashboard && hasNoUser && isNotLoading) {
-      console.log('🔄 On dashboard with no user, forcing auth refresh...');
-      setRetryCount(0);
-      setLoading(true);
-    }
-  }, [user, loading, window.location.pathname]);
-
-  useEffect(() => {
-    async function fetchUser() {
-      console.log('🔄 Starting fetchUser...');
-      console.log('🔄 Retry count:', retryCount);
-      
+    if (sessionParam) {
       try {
-        console.log('🔄 Fetching user authentication status...');
-        console.log('🔄 URL:', `${BACKEND_BASE_URL}/api/user`);
+        const sessionData = JSON.parse(decodeURIComponent(sessionParam));
+        console.log('Found session info in URL:', sessionData);
+        setSessionInfo(sessionData);
         
-        const res = await fetch(`${BACKEND_BASE_URL}/api/user`, { 
-          credentials: 'include'
-        });
+        // Store session info in localStorage as fallback
+        localStorage.setItem('twitch_session_info', JSON.stringify(sessionData));
         
-        console.log('🔄 Auth response status:', res.status);
-        console.log('🔄 Auth response headers:', Object.fromEntries(res.headers.entries()));
-        
-        if (res.ok) {
-          const data = await res.json();
-          console.log('✅ User authenticated:', data);
-          setUser(data);
-          setRetryCount(0); // Reset retry count on success
-          setLoading(false);
-          console.log('✅ Authentication state updated successfully');
-        } else {
-          console.log('❌ User not authenticated, status:', res.status);
-          
-          // Try the auth status endpoint as a fallback
-          try {
-            console.log('🔄 Trying auth status fallback...');
-            const statusRes = await fetch(`${BACKEND_BASE_URL}/auth/status`, { 
-              credentials: 'include'
-            });
-            
-            console.log('🔄 Status response status:', statusRes.status);
-            
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              console.log('🔄 Auth status fallback:', statusData);
-              
-              if (statusData.authenticated && statusData.user) {
-                console.log('✅ User authenticated via fallback:', statusData.user);
-                setUser(statusData.user);
-                setRetryCount(0);
-                setLoading(false);
-                console.log('✅ Authentication state updated via fallback');
-                return;
-              }
-            }
-          } catch (fallbackError) {
-            console.error('❌ Fallback auth check failed:', fallbackError);
-          }
-          
-          setUser(null);
-          // Retry a few times if we get a 401, as the session might still be initializing
-          if (res.status === 401 && retryCount < 3) {
-            console.log(`🔄 Retrying authentication (attempt ${retryCount + 1}/3)...`);
-            setTimeout(() => {
-              setRetryCount(prev => prev + 1);
-            }, 1000 * (retryCount + 1)); // Exponential backoff
-            return;
-          }
-          setLoading(false);
-          console.log('❌ Authentication failed, setting loading to false');
-        }
+        // Clean up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
       } catch (error) {
-        console.error('❌ Auth fetch error:', error);
-        setUser(null);
-        // Retry on network errors
-        if (retryCount < 3) {
-          console.log(`🔄 Retrying due to network error (attempt ${retryCount + 1}/3)...`);
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-          }, 1000 * (retryCount + 1));
-          return;
+        console.error('Error parsing session info from URL:', error);
+      }
+    } else {
+      // Check localStorage for existing session info
+      const storedSession = localStorage.getItem('twitch_session_info');
+      if (storedSession) {
+        try {
+          const sessionData = JSON.parse(storedSession);
+          console.log('Found session info in localStorage:', sessionData);
+          setSessionInfo(sessionData);
+        } catch (error) {
+          console.error('Error parsing stored session info:', error);
+          localStorage.removeItem('twitch_session_info');
         }
-        setLoading(false);
-        console.log('❌ Network error, setting loading to false');
       }
     }
-    
+  }, []);
+
+  const fetchUser = async (retryCount = 0) => {
+    try {
+      console.log('Fetching user data...');
+      
+      const response = await fetch(`${API_BASE_URL}/api/user`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add session info as header if available
+          ...(sessionInfo && { 'X-Session-Info': JSON.stringify(sessionInfo) })
+        }
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('User data received:', userData);
+        setUser(userData);
+        setLoading(false);
+        return userData;
+      } else if (response.status === 401) {
+        console.log('User not authenticated (401)');
+        
+        // Try fallback auth status endpoint
+        if (retryCount === 0) {
+          console.log('Trying fallback auth status endpoint...');
+          return await fetchAuthStatus(retryCount + 1);
+        }
+        
+        setUser(null);
+        setLoading(false);
+        return null;
+      } else {
+        console.error('Unexpected response status:', response.status);
+        setUser(null);
+        setLoading(false);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      
+      if (retryCount < 3) {
+        console.log(`Retrying fetchUser (attempt ${retryCount + 1})...`);
+        setTimeout(() => fetchUser(retryCount + 1), Math.pow(2, retryCount) * 1000);
+        return null;
+      }
+      
+      setUser(null);
+      setLoading(false);
+      return null;
+    }
+  };
+
+  const fetchAuthStatus = async (retryCount = 0) => {
+    try {
+      console.log('Fetching auth status...');
+      
+      const response = await fetch(`${API_BASE_URL}/auth/status`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add session info as header if available
+          ...(sessionInfo && { 'X-Session-Info': JSON.stringify(sessionInfo) })
+        }
+      });
+
+      console.log('Auth status response:', response.status);
+
+      if (response.ok) {
+        const authData = await response.json();
+        console.log('Auth status data:', authData);
+        
+        if (authData.authenticated && authData.user) {
+          setUser(authData.user);
+          setLoading(false);
+          return authData.user;
+        }
+      }
+      
+      setUser(null);
+      setLoading(false);
+      return null;
+    } catch (error) {
+      console.error('Error fetching auth status:', error);
+      
+      if (retryCount < 2) {
+        console.log(`Retrying fetchAuthStatus (attempt ${retryCount + 1})...`);
+        setTimeout(() => fetchAuthStatus(retryCount + 1), Math.pow(2, retryCount) * 1000);
+        return null;
+      }
+      
+      setUser(null);
+      setLoading(false);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    console.log('AuthContext: Initializing...');
     fetchUser();
-  }, [retryCount]);
+  }, [sessionInfo]);
 
   const login = () => {
-    console.log('🚀 Initiating login...');
-    console.log('🚀 Redirecting to:', `${BACKEND_BASE_URL}/auth/twitch`);
-    // Clear any existing user state before redirecting
+    console.log('Initiating login...');
     setUser(null);
     setLoading(true);
-    window.location.href = `${BACKEND_BASE_URL}/auth/twitch`;
+    window.location.href = `${API_BASE_URL}/auth/twitch`;
   };
 
   const logout = async () => {
-    console.log('🚪 Initiating logout...');
+    console.log('Logging out...');
     try {
-      await fetch(`${BACKEND_BASE_URL}/auth/logout`, { 
-        credentials: 'include',
-        method: 'GET'
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'GET',
+        credentials: 'include'
       });
     } catch (error) {
-      console.error('❌ Logout error:', error);
+      console.error('Error during logout:', error);
+    } finally {
+      setUser(null);
+      setSessionInfo(null);
+      localStorage.removeItem('twitch_session_info');
+      window.location.href = '/';
     }
-    setUser(null);
-    setLoading(false);
-    window.location.href = '/';
   };
 
-  console.log('🔧 AuthContext render - user:', user, 'loading:', loading);
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    sessionInfo
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  return useContext(AuthContext);
-} 
+}; 

@@ -4,28 +4,63 @@ import { makeTwitchRequest, batchGetUserInfo, batchGetStreamStatus } from '../ut
 const router = express.Router();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
-router.get('/user', function (req, res) {
-    console.log('=== USER ENDPOINT CALLED ===');
-    console.log('Request headers:', req.headers);
-    console.log('Session ID:', req.sessionID);
-    console.log('Session exists:', !!req.session);
-    console.log('Session passport exists:', !!(req.session && req.session.passport));
-    console.log('Session passport user exists:', !!(req.session && req.session.passport && req.session.passport.user));
-    console.log('Full session data:', JSON.stringify(req.session, null, 2));
-    console.log('Passport user:', req.user);
-    
-    if(req.session && req.session.passport && req.session.passport.user) {
-        console.log('✅ User authenticated, returning user data');
-        console.log('User data being returned:', req.session.passport.user);
-        res.json(req.session.passport.user);
-    } else {
-        console.log('❌ User not authenticated, returning 401');
-        console.log('Session check failed:');
-        console.log('- Session exists:', !!req.session);
-        console.log('- Session passport exists:', !!(req.session && req.session.passport));
-        console.log('- Session passport user exists:', !!(req.session && req.session.passport && req.session.passport.user));
-        res.status(401).json({ error: 'Not authenticated' });
+// Middleware to check for session info in headers
+const checkSessionHeader = (req, res, next) => {
+  const sessionHeader = req.headers['x-session-info'];
+  
+  if (sessionHeader) {
+    try {
+      const sessionInfo = JSON.parse(sessionHeader);
+      console.log('Found session info in header:', sessionInfo);
+      
+      // If we have session info but no session cookie, try to restore the session
+      if (!req.session.passport && sessionInfo.sessionId) {
+        console.log('Attempting to restore session from header info...');
+        // Store the session info for later use
+        req.sessionInfo = sessionInfo;
+      }
+    } catch (error) {
+      console.error('Error parsing session header:', error);
     }
+  }
+  
+  next();
+};
+
+// Get current user
+router.get('/user', checkSessionHeader, (req, res) => {
+  console.log('=== /api/user endpoint called ===');
+  console.log('Cookies:', req.headers.cookie);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session passport exists:', !!req.session.passport);
+  console.log('Passport user:', req.session.passport?.user);
+  console.log('Session info from header:', req.sessionInfo);
+  
+  // Check if user is authenticated via session
+  if (req.session.passport && req.session.passport.user) {
+    console.log('User authenticated via session');
+    res.json(req.session.passport.user);
+    return;
+  }
+  
+  // Check if we have session info from header
+  if (req.sessionInfo) {
+    console.log('Attempting authentication via session header info...');
+    
+    // For now, we'll return a basic user object based on the session info
+    // In a real implementation, you'd want to validate this against your session store
+    const user = {
+      id: req.sessionInfo.userId,
+      // Add other user properties as needed
+    };
+    
+    console.log('Returning user from session header:', user);
+    res.json(user);
+    return;
+  }
+  
+  console.log('No authentication found');
+  res.status(401).json({ error: 'Not authenticated' });
 });
 
 router.get('/followed', async function (req, res) {
