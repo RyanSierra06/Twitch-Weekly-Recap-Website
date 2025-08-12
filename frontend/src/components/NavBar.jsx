@@ -7,8 +7,6 @@ export default function NavBar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    console.log('🧭 NavBar render - user:', user, 'loading:', loading, 'location:', location.pathname);
-
     const isActive = (path) => location.pathname === path;
 
     return (

@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "passport-oauth2": "^1.8.0"
+  }
+}
