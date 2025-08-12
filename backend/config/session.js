@@ -12,6 +12,11 @@ if (!MONGO_URI) {
   throw new Error('MONGO_URI environment variable is not defined');
 }
 
+console.log('Session configuration:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('SameSite:', process.env.NODE_ENV === 'production' ? 'none' : 'lax');
+console.log('Secure:', process.env.NODE_ENV === 'production');
+
 export default session({
   secret: SESSION_SECRET,
   resave: false,

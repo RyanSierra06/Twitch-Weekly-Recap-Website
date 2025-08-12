@@ -17,6 +17,11 @@ const app = express();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 const PORT = process.env.PORT || 4000;
 
+console.log('Environment variables:');
+console.log('FRONTEND_BASE_URL:', FRONTEND_BASE_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', PORT);
+
 // Production optimizations
 app.use(helmet({
   contentSecurityPolicy: {
@@ -50,21 +55,37 @@ app.use(session);
 app.use(express.static('public'));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// More permissive CORS for debugging
 app.use(cors({
     origin: function(origin, callback) {
+        console.log('CORS origin check:', origin);
+        
         // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
+        if (!origin) {
+            console.log('Allowing request with no origin');
+            return callback(null, true);
+        }
         
         // Allow the frontend URL
         if (origin === FRONTEND_BASE_URL) {
+            console.log('Allowing frontend origin:', origin);
             return callback(null, true);
         }
         
         // Allow localhost for development
         if (process.env.NODE_ENV !== 'production' && origin.startsWith('http://localhost')) {
+            console.log('Allowing localhost origin:', origin);
             return callback(null, true);
         }
         
+        // For production, be more permissive during debugging
+        if (process.env.NODE_ENV === 'production') {
+            console.log('Allowing production origin:', origin);
+            return callback(null, true);
+        }
+        
+        console.log('Rejecting origin:', origin);
         callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -121,6 +142,17 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
     frontendUrl: FRONTEND_BASE_URL
+  });
+});
+
+// Test session endpoint
+app.get('/test-session', (req, res) => {
+  res.json({
+    sessionExists: !!req.session,
+    sessionId: req.sessionID,
+    passportExists: !!(req.session && req.session.passport),
+    userExists: !!(req.session && req.session.passport && req.session.passport.user),
+    sessionData: req.session
   });
 });
 

@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const BASE_URL = 'http://localhost:4000';
+const BASE_URL = 'https://twitch-weekly-recap-website.onrender.com';
 
 async function testAuth() {
   console.log('Testing authentication endpoints...\n');
@@ -12,6 +12,15 @@ async function testAuth() {
     console.log('Health Check:', healthData);
   } catch (error) {
     console.error('Error testing health endpoint:', error.message);
+  }
+  
+  // Test session endpoint
+  try {
+    const sessionResponse = await fetch(`${BASE_URL}/test-session`);
+    const sessionData = await sessionResponse.json();
+    console.log('Session Test:', sessionData);
+  } catch (error) {
+    console.error('Error testing session endpoint:', error.message);
   }
   
   // Test auth status endpoint

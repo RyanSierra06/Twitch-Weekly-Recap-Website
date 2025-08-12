@@ -5,9 +5,17 @@ const router = express.Router();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
 router.get('/user', function (req, res) {
+    console.log('User endpoint called');
+    console.log('Session exists:', !!req.session);
+    console.log('Session passport exists:', !!(req.session && req.session.passport));
+    console.log('Session passport user exists:', !!(req.session && req.session.passport && req.session.passport.user));
+    console.log('Full session data:', req.session);
+    
     if(req.session && req.session.passport && req.session.passport.user) {
+        console.log('User authenticated, returning user data');
         res.json(req.session.passport.user);
     } else {
+        console.log('User not authenticated, returning 401');
         res.status(401).json({ error: 'Not authenticated' });
     }
 });
