@@ -31,7 +31,8 @@ export default session({
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
     httpOnly: true,
     path: '/',
-    domain: process.env.NODE_ENV === 'production' ? undefined : undefined
+    // Don't set domain in production to allow cross-origin cookies
+    domain: undefined
   },
   name: 'connect.sid',
   rolling: true, // Extend session on every request

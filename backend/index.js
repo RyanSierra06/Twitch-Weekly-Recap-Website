@@ -54,12 +54,23 @@ app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
-    exposedHeaders: ['Set-Cookie']
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 
 // Session middleware
 app.use(session);
+
+// Ensure session is initialized
+app.use((req, res, next) => {
+  if (!req.session) {
+    console.error('Session middleware not working properly');
+    return res.status(500).json({ error: 'Session not available' });
+  }
+  next();
+});
 
 // Passport middleware
 app.use(passport.initialize());
@@ -113,6 +124,31 @@ app.get('/auth/status', (req, res) => {
     } else {
         res.json({ authenticated: false });
     }
+});
+
+// Test session endpoint
+app.get('/auth/test-session', (req, res) => {
+    console.log('Test session endpoint called');
+    console.log('Session ID:', req.sessionID);
+    console.log('Session exists:', !!req.session);
+    console.log('Session data:', req.session);
+    console.log('Cookies:', req.headers.cookie);
+    
+    // Create a test session
+    req.session.test = 'session_working';
+    req.session.save((err) => {
+        if (err) {
+            console.error('Error saving test session:', err);
+            return res.status(500).json({ error: 'Failed to save session' });
+        }
+        
+        console.log('Test session saved successfully');
+        res.json({ 
+            message: 'Test session created',
+            sessionId: req.sessionID,
+            sessionData: req.session
+        });
+    });
 });
 
 // Error handling middleware
