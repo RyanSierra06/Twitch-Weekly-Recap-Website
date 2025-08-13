@@ -17,6 +17,7 @@ OAuth2Strategy.prototype.userProfile = function(accessToken, done) {
     };
     request(options, function (error, response, body) {
         if (error) {
+            console.error('Error fetching user profile:', error);
             return done(error);
         }
         
@@ -25,15 +26,19 @@ OAuth2Strategy.prototype.userProfile = function(accessToken, done) {
                 const data = JSON.parse(body);
                 // Extract the first user from the data array
                 const user = data.data && data.data[0] ? data.data[0] : data;
+                console.log('User profile fetched successfully:', user.id);
                 done(null, user);
             } catch (parseError) {
+                console.error('Error parsing user profile:', parseError);
                 done(parseError);
             }
         } else {
             try {
                 const errorData = JSON.parse(body);
+                console.error('Twitch API error:', errorData);
                 done(errorData);
             } catch (parseError) {
+                console.error('Error parsing Twitch API error response:', parseError);
                 done(new Error('Failed to parse Twitch API response'));
             }
         }
@@ -42,12 +47,19 @@ OAuth2Strategy.prototype.userProfile = function(accessToken, done) {
 
 passport.serializeUser(function(user, done) {
     console.log('Serializing user:', user.id);
+    // Store the entire user object to ensure we have all necessary data
     done(null, user);
 });
 
 passport.deserializeUser(function(user, done) {
     console.log('Deserializing user:', user.id);
-    done(null, user);
+    // The user object should already be complete from serialization
+    if (user && user.id) {
+        done(null, user);
+    } else {
+        console.error('Invalid user data during deserialization:', user);
+        done(new Error('Invalid user data'));
+    }
 });
 
 passport.use('twitch', new OAuth2Strategy({
@@ -59,9 +71,21 @@ passport.use('twitch', new OAuth2Strategy({
     state: true
 }, function(accessToken, refreshToken, profile, done) {
     console.log('OAuth callback received for user:', profile.id);
-    profile.accessToken = accessToken;
-    profile.refreshToken = refreshToken;
-    done(null, profile);
+    
+    // Ensure we have all necessary user data
+    const userData = {
+        ...profile,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        // Ensure we have the user ID in multiple formats for compatibility
+        id: profile.id,
+        user_id: profile.id,
+        // Add timestamp for debugging
+        authenticatedAt: new Date().toISOString()
+    };
+    
+    console.log('User data prepared for authentication:', userData.id);
+    done(null, userData);
 }));
 
 export default passport;

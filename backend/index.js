@@ -54,7 +54,7 @@ app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Cache-Control', 'Pragma'],
     exposedHeaders: ['Set-Cookie'],
     preflightContinue: false,
     optionsSuccessStatus: 204
@@ -63,12 +63,39 @@ app.use(cors({
 // Session middleware
 app.use(session);
 
+// Session persistence middleware
+app.use((req, res, next) => {
+  // Ensure session is saved on every request if it has data
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding) {
+    if (req.session && (req.session.user || (req.session.passport && req.session.passport.user))) {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Error saving session in middleware:', err);
+        }
+        originalEnd.call(this, chunk, encoding);
+      });
+    } else {
+      originalEnd.call(this, chunk, encoding);
+    }
+  };
+  next();
+});
+
 // Ensure session is initialized
 app.use((req, res, next) => {
   if (!req.session) {
     console.error('Session middleware not working properly');
     return res.status(500).json({ error: 'Session not available' });
   }
+  
+  // Add session debugging
+  console.log(`[${new Date().toISOString()}] Session initialized:`, {
+    sessionId: req.sessionID,
+    sessionExists: !!req.session,
+    hasUser: !!(req.session.user || (req.session.passport && req.session.passport.user))
+  });
+  
   next();
 });
 
@@ -76,18 +103,28 @@ app.use((req, res, next) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Static files
-app.use(express.static('public'));
-
-// Debug middleware for session tracking
+// Enhanced session debugging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Cookies:', req.headers.cookie);
   console.log('Session ID:', req.sessionID);
+  console.log('Session exists:', !!req.session);
   console.log('Session data:', req.session);
   console.log('Passport user:', req.user);
+  console.log('Cookies:', req.headers.cookie);
+  
+  // Add session validation
+  if (req.session && req.sessionID) {
+    // Ensure session is saved if it has data
+    if (req.session.user || (req.session.passport && req.session.passport.user)) {
+      req.session.touch(); // Extend session
+    }
+  }
+  
   next();
 });
+
+// Static files
+app.use(express.static('public'));
 
 // Routes
 app.use('/auth', authRoutes);
@@ -102,33 +139,55 @@ app.get('/', function (req, res) {
     } else if (req.session?.passport?.user) {
         // Fall back to session passport user
         res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
+    } else if (req.session?.user) {
+        // Fall back to direct session user
+        res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
     } else {
         res.redirect(FRONTEND_BASE_URL);
     }
 });
 
-// Authentication status endpoint
+// Enhanced authentication status endpoint
 app.get('/auth/status', (req, res) => {
+    console.log('=== /auth/status endpoint called ===');
+    
     // Check passport user first (most reliable)
     if (req.user) {
+        console.log('User authenticated via passport:', req.user.id);
         res.json({ 
             authenticated: true, 
-            user: req.user 
+            user: req.user,
+            authMethod: 'passport'
         });
     } else if (req.session?.passport?.user) {
         // Fall back to session passport user
+        console.log('User authenticated via session passport:', req.session.passport.user.id);
         res.json({ 
             authenticated: true, 
-            user: req.session.passport.user 
+            user: req.session.passport.user,
+            authMethod: 'session_passport'
+        });
+    } else if (req.session?.user) {
+        // Fall back to direct session user
+        console.log('User authenticated via session user:', req.session.user.id);
+        res.json({ 
+            authenticated: true, 
+            user: req.session.user,
+            authMethod: 'session_user'
         });
     } else {
-        res.json({ authenticated: false });
+        console.log('User not authenticated');
+        res.json({ 
+            authenticated: false,
+            sessionId: req.sessionID,
+            sessionExists: !!req.session
+        });
     }
 });
 
-// Test session endpoint
+// Enhanced test session endpoint
 app.get('/auth/test-session', (req, res) => {
-    console.log('Test session endpoint called');
+    console.log('=== Test session endpoint called ===');
     console.log('Session ID:', req.sessionID);
     console.log('Session exists:', !!req.session);
     console.log('Session data:', req.session);
@@ -136,6 +195,8 @@ app.get('/auth/test-session', (req, res) => {
     
     // Create a test session
     req.session.test = 'session_working';
+    req.session.testTimestamp = new Date().toISOString();
+    
     req.session.save((err) => {
         if (err) {
             console.error('Error saving test session:', err);
@@ -146,7 +207,8 @@ app.get('/auth/test-session', (req, res) => {
         res.json({ 
             message: 'Test session created',
             sessionId: req.sessionID,
-            sessionData: req.session
+            sessionData: req.session,
+            cookies: req.headers.cookie
         });
     });
 });

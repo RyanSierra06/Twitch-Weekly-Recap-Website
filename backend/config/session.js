@@ -14,8 +14,8 @@ if (!MONGO_URI) {
 
 export default session({
   secret: SESSION_SECRET,
-  resave: false, // Changed to false to prevent unnecessary saves
-  saveUninitialized: false,
+  resave: true, // Changed to true to ensure session is saved on every request
+  saveUninitialized: true, // Changed to true to save sessions even if they're empty
   store: MongoStore.create({
     mongoUrl: MONGO_URI,
     ttl: 7 * 24 * 60 * 60, // 7 days in seconds
@@ -24,6 +24,7 @@ export default session({
     crypto: {
       secret: SESSION_SECRET
     }
+    // Removed deprecated mongoOptions as they're no longer needed in MongoDB Driver 4.0.0+
   }),
   cookie: {
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',

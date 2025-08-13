@@ -4,27 +4,63 @@ import { makeTwitchRequest, batchGetUserInfo, batchGetStreamStatus } from '../ut
 const router = express.Router();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
-// Helper function to get user from session or passport
+// Enhanced helper function to get user from session or passport with better error handling
 function getUserFromRequest(req) {
+    console.log('=== getUserFromRequest Debug ===');
+    console.log('Session ID:', req.sessionID);
+    console.log('Session exists:', !!req.session);
+    console.log('Session data:', req.session);
+    console.log('Passport user:', req.user);
+    console.log('Cookies:', req.headers.cookie);
+    
     // Check passport user first (most reliable)
-    if (req.user) {
+    if (req.user && req.user.id) {
+        console.log('Found user in req.user:', req.user.id);
         return req.user;
     }
     
     // Fall back to session passport user
     if (req.session && req.session.passport && req.session.passport.user) {
+        console.log('Found user in session.passport.user:', req.session.passport.user.id);
         return req.session.passport.user;
     }
     
+    // Additional fallback: check if session has user data directly
+    if (req.session && req.session.user) {
+        console.log('Found user in session.user:', req.session.user.id);
+        return req.session.user;
+    }
+    
+    // Check if we have a valid session but user data is missing
+    if (req.session && req.sessionID) {
+        console.log('Session exists but no user data found');
+        console.log('This might indicate a session deserialization issue');
+    }
+    
+    console.log('No user found in any location');
     return null;
 }
 
 router.get('/user', function (req, res) {
+    console.log('=== /api/user endpoint called ===');
+    
     const user = getUserFromRequest(req);
-    if (user) {
+    
+    if (user && user.id) {
+        console.log('Returning authenticated user:', user.id);
         res.json(user);
     } else {
-        res.status(401).json({ error: 'Not authenticated' });
+        console.log('User not authenticated, returning 401');
+        console.log('Session ID:', req.sessionID);
+        console.log('Session exists:', !!req.session);
+        
+        // Return more detailed error information for debugging
+        res.status(401).json({ 
+            error: 'Not authenticated',
+            sessionId: req.sessionID,
+            sessionExists: !!req.session,
+            hasPassportUser: !!(req.user || (req.session && req.session.passport && req.session.passport.user))
+        });
     }
 });
 
