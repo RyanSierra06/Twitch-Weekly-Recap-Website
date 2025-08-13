@@ -49,72 +49,26 @@ app.use(limiter);
 // Connect to MongoDB
 connectDB().catch(console.error);
 
-// Enhanced CORS configuration for maximum compatibility
+// CORS configuration - must come before session
 app.use(cors({
-    origin: function(origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
-        
-        // Allow the frontend URL
-        if (origin === FRONTEND_BASE_URL) {
-            return callback(null, true);
-        }
-        
-        // Allow localhost for development
-        if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
-            return callback(null, true);
-        }
-        
-        // Allow test requests from node-fetch
-        if (origin === 'http://localhost:4000' || origin === 'https://twitch-weekly-recap-website.onrender.com') {
-            return callback(null, true);
-        }
-        
-        console.log('CORS blocked origin:', origin);
-        callback(new Error('Not allowed by CORS'));
-    },
+    origin: FRONTEND_BASE_URL,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
-    allowedHeaders: [
-        'Content-Type', 
-        'Authorization', 
-        'Cookie', 
-        'X-Requested-With',
-        'Accept',
-        'Origin',
-        'X-CSRF-Token'
-    ],
-    exposedHeaders: ['Set-Cookie', 'X-Total-Count'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'],
     preflightContinue: false,
-    optionsSuccessStatus: 204,
-    maxAge: 86400 // 24 hours
+    optionsSuccessStatus: 204
 }));
 
 // Session middleware
 app.use(session);
 
-// Enhanced session validation middleware
+// Ensure session is initialized
 app.use((req, res, next) => {
   if (!req.session) {
     console.error('Session middleware not working properly');
     return res.status(500).json({ error: 'Session not available' });
   }
-  
-  // Log session state for debugging
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Session ID:', req.sessionID);
-  console.log('Session exists:', !!req.session);
-  console.log('Session data:', req.session);
-  console.log('Cookies:', req.headers.cookie);
-  console.log('User-Agent:', req.headers['user-agent']);
-  
-  // Validate session store
-  if (req.sessionStore) {
-    console.log('Session store type:', req.sessionStore.constructor.name);
-  } else {
-    console.log('No session store configured (using memory store)');
-  }
-  
   next();
 });
 
@@ -122,20 +76,18 @@ app.use((req, res, next) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Enhanced passport validation
-app.use((req, res, next) => {
-  if (req.user) {
-    console.log('Passport user found:', req.user.id);
-  } else if (req.session?.passport?.user) {
-    console.log('Session passport user found:', req.session.passport.user.id);
-  } else {
-    console.log('No authenticated user found');
-  }
-  next();
-});
-
 // Static files
 app.use(express.static('public'));
+
+// Debug middleware for session tracking
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Cookies:', req.headers.cookie);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session data:', req.session);
+  console.log('Passport user:', req.user);
+  next();
+});
 
 // Routes
 app.use('/auth', authRoutes);
@@ -184,7 +136,6 @@ app.get('/auth/test-session', (req, res) => {
     
     // Create a test session
     req.session.test = 'session_working';
-    req.session.testTime = new Date().toISOString();
     req.session.save((err) => {
         if (err) {
             console.error('Error saving test session:', err);
@@ -195,15 +146,14 @@ app.get('/auth/test-session', (req, res) => {
         res.json({ 
             message: 'Test session created',
             sessionId: req.sessionID,
-            sessionData: req.session,
-            cookies: req.headers.cookie
+            sessionData: req.session
         });
     });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error occurred:', err.stack);
+  console.error(err.stack);
   
   // Check if headers have already been sent
   if (!res.headersSent) {
@@ -221,7 +171,6 @@ app.use((req, res) => {
 const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`Frontend URL: ${FRONTEND_BASE_URL}`);
 });
 
 // Graceful shutdown
