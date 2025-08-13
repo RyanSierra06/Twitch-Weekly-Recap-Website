@@ -16,22 +16,37 @@ OAuth2Strategy.prototype.userProfile = function(accessToken, done) {
         }
     };
     request(options, function (error, response, body) {
+        if (error) {
+            return done(error);
+        }
+        
         if (response && response.statusCode === 200) {
-            const data = JSON.parse(body);
-            // Extract the first user from the data array
-            const user = data.data && data.data[0] ? data.data[0] : data;
-            done(null, user);
+            try {
+                const data = JSON.parse(body);
+                // Extract the first user from the data array
+                const user = data.data && data.data[0] ? data.data[0] : data;
+                done(null, user);
+            } catch (parseError) {
+                done(parseError);
+            }
         } else {
-            done(JSON.parse(body));
+            try {
+                const errorData = JSON.parse(body);
+                done(errorData);
+            } catch (parseError) {
+                done(new Error('Failed to parse Twitch API response'));
+            }
         }
     });
 };
 
 passport.serializeUser(function(user, done) {
+    console.log('Serializing user:', user.id);
     done(null, user);
 });
 
 passport.deserializeUser(function(user, done) {
+    console.log('Deserializing user:', user.id);
     done(null, user);
 });
 
@@ -43,6 +58,7 @@ passport.use('twitch', new OAuth2Strategy({
     callbackURL: CALLBACK_URL,
     state: true
 }, function(accessToken, refreshToken, profile, done) {
+    console.log('OAuth callback received for user:', profile.id);
     profile.accessToken = accessToken;
     profile.refreshToken = refreshToken;
     done(null, profile);
