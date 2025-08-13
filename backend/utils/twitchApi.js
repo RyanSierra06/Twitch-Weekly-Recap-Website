@@ -1,45 +1,44 @@
-import request from 'request';
+import fetch from 'node-fetch';
 import { cache, CACHE_TTL } from './cache.js';
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 
-export function makeTwitchRequest(url, accessToken, cacheKey = null) {
-    return new Promise((resolve, reject) => {
-        if (cacheKey && cache.has(cacheKey)) {
-            const cached = cache.get(cacheKey);
-            if (Date.now() - cached.timestamp < CACHE_TTL) {
-                return resolve(cached.data);
-            }
-            cache.delete(cacheKey);
+export async function makeTwitchRequest(url, accessToken, cacheKey = null) {
+    if (cacheKey && cache.has(cacheKey)) {
+        const cached = cache.get(cacheKey);
+        if (Date.now() - cached.timestamp < CACHE_TTL) {
+            return cached.data;
         }
+        cache.delete(cacheKey);
+    }
 
-        const options = {
-            url: url,
+    try {
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Client-ID': TWITCH_CLIENT_ID,
                 'Authorization': 'Bearer ' + accessToken
             }
-        };
-
-        request(options, function (error, response, body) {
-            if (error) {
-                return reject(error);
-            }
-            try {
-                const data = JSON.parse(body);
-                if (cacheKey) {
-                    cache.set(cacheKey, {
-                        data: data,
-                        timestamp: Date.now()
-                    });
-                }
-                resolve(data);
-            } catch (e) {
-                reject(e);
-            }
         });
-    });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (cacheKey) {
+            cache.set(cacheKey, {
+                data: data,
+                timestamp: Date.now()
+            });
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Twitch API request error:', error);
+        throw error;
+    }
 }
 
 export async function batchGetUserInfo(userIds, accessToken) {
