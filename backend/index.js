@@ -4,7 +4,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import { connectDB, disconnectDB } from './config/database.js';
 
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/user.js';
@@ -43,9 +42,6 @@ const limiter = rateLimit({
   skipFailedRequests: false, // Count failed requests
 });
 app.use(limiter);
-
-// Connect to MongoDB
-connectDB().catch(console.error);
 
 // CORS configuration
 app.use(cors({
@@ -98,39 +94,25 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// Start server
 const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown
-const gracefulShutdown = async (signal) => {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
-  
-  server.close(async () => {
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received. Starting graceful shutdown...');
+  server.close(() => {
     console.log('HTTP server closed.');
-    
-    try {
-      await disconnectDB();
-      console.log('Database disconnected.');
-      process.exit(0);
-    } catch (error) {
-      console.error('Error during shutdown:', error);
-      process.exit(1);
-    }
+    process.exit(0);
   });
-};
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Don't exit immediately, just log the error
+process.on('SIGINT', async () => {
+  console.log('SIGINT received. Starting graceful shutdown...');
+  server.close(() => {
+    console.log('HTTP server closed.');
+    process.exit(0);
+  });
 });
