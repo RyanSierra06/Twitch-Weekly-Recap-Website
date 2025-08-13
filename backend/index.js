@@ -65,6 +65,12 @@ app.use(cors({
             return callback(null, true);
         }
         
+        // Allow test requests from node-fetch
+        if (origin === 'http://localhost:4000' || origin === 'https://twitch-weekly-recap-website.onrender.com') {
+            return callback(null, true);
+        }
+        
+        console.log('CORS blocked origin:', origin);
         callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -100,6 +106,14 @@ app.use((req, res, next) => {
   console.log('Session exists:', !!req.session);
   console.log('Session data:', req.session);
   console.log('Cookies:', req.headers.cookie);
+  console.log('User-Agent:', req.headers['user-agent']);
+  
+  // Validate session store
+  if (req.sessionStore) {
+    console.log('Session store type:', req.sessionStore.constructor.name);
+  } else {
+    console.log('No session store configured (using memory store)');
+  }
   
   next();
 });

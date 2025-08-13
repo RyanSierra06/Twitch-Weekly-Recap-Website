@@ -15,6 +15,7 @@ export const connectDB = async () => {
     console.log('Connection attempts:', connectionAttempts + 1);
     
     const conn = await mongoose.connect(process.env.MONGO_URI, {
+      // Only use supported MongoDB driver options
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS: 45000,
       connectTimeoutMS: 10000,
@@ -22,12 +23,7 @@ export const connectDB = async () => {
       minPoolSize: 1,
       maxIdleTimeMS: 30000,
       retryWrites: true,
-      w: 'majority',
-      // Enhanced connection options
-      bufferCommands: false,
-      bufferMaxEntries: 0,
-      useNewUrlParser: true,
-      useUnifiedTopology: true
+      w: 'majority'
     });
 
     isConnected = true;

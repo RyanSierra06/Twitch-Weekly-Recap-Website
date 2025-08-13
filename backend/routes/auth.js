@@ -73,7 +73,7 @@ router.get('/twitch/callback', (req, res, next) => {
                         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
                     };
                     
-                    // Set the session cookie
+                    // Set the session cookie BEFORE redirect
                     res.cookie('connect.sid', req.sessionID, cookieOptions);
                     
                     // Set additional headers for maximum compatibility
@@ -84,10 +84,29 @@ router.get('/twitch/callback', (req, res, next) => {
                     res.setHeader('X-User-ID', user.id);
                     
                     console.log('Cookie set, redirecting to dashboard...');
+                    console.log('Cookie options:', cookieOptions);
                     console.log('=== OAuth Callback Completed Successfully ===');
                     
-                    // Redirect with success parameter
-                    res.redirect(process.env.FRONTEND_BASE_URL + '/dashboard?auth=success');
+                    // Use a temporary page to ensure cookie is set before redirect
+                    const html = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Redirecting...</title>
+                        </head>
+                        <body>
+                            <p>Authentication successful! Redirecting to dashboard...</p>
+                            <script>
+                                // Ensure cookie is set before redirect
+                                setTimeout(() => {
+                                    window.location.href = '${process.env.FRONTEND_BASE_URL}/dashboard?auth=success';
+                                }, 100);
+                            </script>
+                        </body>
+                        </html>
+                    `;
+                    
+                    res.send(html);
                 });
             };
             
@@ -145,6 +164,44 @@ router.get('/debug', (req, res) => {
         cookies: req.headers.cookie,
         userAgent: req.headers['user-agent'],
         timestamp: new Date().toISOString()
+    });
+});
+
+router.get('/test-cookie', (req, res) => {
+    console.log('=== Cookie Test Endpoint ===');
+    console.log('Request cookies:', req.headers.cookie);
+    console.log('Session ID:', req.sessionID);
+    console.log('Session exists:', !!req.session);
+    
+    // Set a test cookie
+    const testCookieValue = `test_${Date.now()}`;
+    res.cookie('test_cookie', testCookieValue, {
+        httpOnly: false, // Allow JavaScript access for testing
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 1000 // 1 hour
+    });
+    
+    // Set session cookie if session exists
+    if (req.sessionID) {
+        res.cookie('connect.sid', req.sessionID, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+    }
+    
+    res.json({
+        message: 'Cookie test completed',
+        testCookie: testCookieValue,
+        sessionId: req.sessionID,
+        sessionExists: !!req.session,
+        requestCookies: req.headers.cookie,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 

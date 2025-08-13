@@ -34,9 +34,22 @@ async function testAuth() {
     console.error('✗ Session creation failed:', error.message);
   }
   
-  // Test 3: Auth status endpoint
+  // Test 3: Cookie test endpoint
   try {
-    console.log('\n3. Testing /auth/status endpoint...');
+    console.log('\n3. Testing cookie functionality...');
+    const cookieResponse = await fetch(`${BASE_URL}/auth/test-cookie`);
+    const cookieData = await cookieResponse.json();
+    console.log('✓ Cookie test completed');
+    console.log('  Status Code:', cookieResponse.status);
+    console.log('  Set-Cookie Headers:', cookieResponse.headers.get('set-cookie'));
+    console.log('  Response Data:', cookieData);
+  } catch (error) {
+    console.error('✗ Cookie test failed:', error.message);
+  }
+  
+  // Test 4: Auth status endpoint
+  try {
+    console.log('\n4. Testing /auth/status endpoint...');
     const statusResponse = await fetch(`${BASE_URL}/auth/status`);
     const statusData = await statusResponse.json();
     console.log('✓ Auth status test completed');
@@ -47,9 +60,9 @@ async function testAuth() {
     console.error('✗ Auth status test failed:', error.message);
   }
   
-  // Test 4: User endpoint (should fail without auth)
+  // Test 5: User endpoint (should fail without auth)
   try {
-    console.log('\n4. Testing /api/user endpoint (unauthenticated)...');
+    console.log('\n5. Testing /api/user endpoint (unauthenticated)...');
     const userResponse = await fetch(`${BASE_URL}/api/user`);
     const userData = await userResponse.json();
     console.log('✓ User endpoint test completed (expected 401)');
@@ -59,9 +72,9 @@ async function testAuth() {
     console.error('✗ User endpoint test failed:', error.message);
   }
   
-  // Test 5: Twitch OAuth URL
+  // Test 6: Twitch OAuth URL
   try {
-    console.log('\n5. Testing Twitch OAuth URL...');
+    console.log('\n6. Testing Twitch OAuth URL...');
     const oauthResponse = await fetch(`${BASE_URL}/auth/twitch`);
     console.log('✓ OAuth URL test completed');
     console.log('  Redirect Status:', oauthResponse.status);
@@ -71,9 +84,9 @@ async function testAuth() {
     console.error('✗ OAuth URL test failed:', error.message);
   }
   
-  // Test 6: Debug endpoint
+  // Test 7: Debug endpoint
   try {
-    console.log('\n6. Testing debug endpoint...');
+    console.log('\n7. Testing debug endpoint...');
     const debugResponse = await fetch(`${BASE_URL}/auth/debug`);
     const debugData = await debugResponse.json();
     console.log('✓ Debug endpoint test completed');
@@ -86,9 +99,9 @@ async function testAuth() {
     console.error('✗ Debug endpoint test failed:', error.message);
   }
   
-  // Test 7: CORS preflight
+  // Test 8: CORS preflight
   try {
-    console.log('\n7. Testing CORS preflight...');
+    console.log('\n8. Testing CORS preflight...');
     const corsResponse = await fetch(`${BASE_URL}/auth/status`, {
       method: 'OPTIONS',
       headers: {
@@ -108,21 +121,31 @@ async function testAuth() {
   console.log('\n=== TEST SUMMARY ===');
   console.log('All basic connectivity tests completed.');
   console.log('');
-  console.log('To test full authentication flow:');
-  console.log('1. Visit the OAuth URL in your browser:');
-  console.log(`   ${BASE_URL}/auth/twitch`);
-  console.log('2. Complete the Twitch OAuth flow');
-  console.log('3. You should be redirected to the dashboard');
+  console.log('🔧 DIAGNOSTIC STEPS:');
   console.log('');
-  console.log('To test in production:');
-  console.log('1. Visit: https://twitch-weekly-recap-website.onrender.com/auth/test-session');
-  console.log('2. Check if cookies are being set properly');
-  console.log('3. Then try the OAuth flow');
+  console.log('1. Test cookie functionality:');
+  console.log(`   Visit: ${BASE_URL}/auth/test-cookie`);
+  console.log('   Check browser dev tools → Application → Cookies');
   console.log('');
-  console.log('To debug session issues:');
-  console.log('1. Visit: https://twitch-weekly-recap-website.onrender.com/auth/debug');
-  console.log('2. Check the response for session state');
-  console.log('3. Compare with your working browser session');
+  console.log('2. Test OAuth flow:');
+  console.log(`   Visit: ${BASE_URL}/auth/twitch`);
+  console.log('   Complete Twitch OAuth');
+  console.log('   Check if redirected to dashboard with ?auth=success');
+  console.log('');
+  console.log('3. Debug session state:');
+  console.log(`   Visit: ${BASE_URL}/auth/debug`);
+  console.log('   Check response for session information');
+  console.log('');
+  console.log('4. Frontend debugging:');
+  console.log('   Open browser dev tools → Console');
+  console.log('   Look for authentication logs');
+  console.log('   Check Network tab for cookie headers');
+  console.log('');
+  console.log('🚨 COMMON ISSUES:');
+  console.log('- Cookies not being set: Check SameSite and Secure settings');
+  console.log('- CORS errors: Check origin configuration');
+  console.log('- Session not persisting: Check MongoDB connection');
+  console.log('- 401 errors: Check if cookies are being sent with requests');
 }
 
 // Run the test
