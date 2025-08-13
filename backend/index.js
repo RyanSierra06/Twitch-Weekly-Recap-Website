@@ -4,8 +4,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import session from './config/session.js';
-import passport from './config/passport.js';
 import { connectDB, disconnectDB } from './config/database.js';
 
 import authRoutes from './routes/auth.js';
@@ -49,82 +47,29 @@ app.use(limiter);
 // Connect to MongoDB
 connectDB().catch(console.error);
 
-// CORS configuration - must come before session
+// CORS configuration
 app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Cache-Control', 'Pragma'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['Set-Cookie'],
     preflightContinue: false,
     optionsSuccessStatus: 204
 }));
 
-// Session middleware
-app.use(session);
-
-// Session persistence middleware
-app.use((req, res, next) => {
-  // Ensure session is saved on every request if it has data
-  const originalEnd = res.end;
-  res.end = function(chunk, encoding) {
-    if (req.session && (req.session.user || (req.session.passport && req.session.passport.user))) {
-      req.session.save((err) => {
-        if (err) {
-          console.error('Error saving session in middleware:', err);
-        }
-        originalEnd.call(this, chunk, encoding);
-      });
-    } else {
-      originalEnd.call(this, chunk, encoding);
-    }
-  };
-  next();
-});
-
-// Ensure session is initialized
-app.use((req, res, next) => {
-  if (!req.session) {
-    console.error('Session middleware not working properly');
-    return res.status(500).json({ error: 'Session not available' });
-  }
-  
-  // Add session debugging
-  console.log(`[${new Date().toISOString()}] Session initialized:`, {
-    sessionId: req.sessionID,
-    sessionExists: !!req.session,
-    hasUser: !!(req.session.user || (req.session.passport && req.session.passport.user))
-  });
-  
-  next();
-});
-
-// Passport middleware
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Enhanced session debugging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log('Session ID:', req.sessionID);
-  console.log('Session exists:', !!req.session);
-  console.log('Session data:', req.session);
-  console.log('Passport user:', req.user);
-  console.log('Cookies:', req.headers.cookie);
-  
-  // Add session validation
-  if (req.session && req.sessionID) {
-    // Ensure session is saved if it has data
-    if (req.session.user || (req.session.passport && req.session.passport.user)) {
-      req.session.touch(); // Extend session
-    }
-  }
-  
-  next();
-});
+// Body parsing middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Static files
 app.use(express.static('public'));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
 
 // Routes
 app.use('/auth', authRoutes);
@@ -133,84 +78,7 @@ app.use('/api', twitchRoutes);
 app.use('/api', subscriptionRoutes);
 
 app.get('/', function (req, res) {
-    // Check passport user first (most reliable)
-    if (req.user) {
-        res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
-    } else if (req.session?.passport?.user) {
-        // Fall back to session passport user
-        res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
-    } else if (req.session?.user) {
-        // Fall back to direct session user
-        res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
-    } else {
-        res.redirect(FRONTEND_BASE_URL);
-    }
-});
-
-// Enhanced authentication status endpoint
-app.get('/auth/status', (req, res) => {
-    console.log('=== /auth/status endpoint called ===');
-    
-    // Check passport user first (most reliable)
-    if (req.user) {
-        console.log('User authenticated via passport:', req.user.id);
-        res.json({ 
-            authenticated: true, 
-            user: req.user,
-            authMethod: 'passport'
-        });
-    } else if (req.session?.passport?.user) {
-        // Fall back to session passport user
-        console.log('User authenticated via session passport:', req.session.passport.user.id);
-        res.json({ 
-            authenticated: true, 
-            user: req.session.passport.user,
-            authMethod: 'session_passport'
-        });
-    } else if (req.session?.user) {
-        // Fall back to direct session user
-        console.log('User authenticated via session user:', req.session.user.id);
-        res.json({ 
-            authenticated: true, 
-            user: req.session.user,
-            authMethod: 'session_user'
-        });
-    } else {
-        console.log('User not authenticated');
-        res.json({ 
-            authenticated: false,
-            sessionId: req.sessionID,
-            sessionExists: !!req.session
-        });
-    }
-});
-
-// Enhanced test session endpoint
-app.get('/auth/test-session', (req, res) => {
-    console.log('=== Test session endpoint called ===');
-    console.log('Session ID:', req.sessionID);
-    console.log('Session exists:', !!req.session);
-    console.log('Session data:', req.session);
-    console.log('Cookies:', req.headers.cookie);
-    
-    // Create a test session
-    req.session.test = 'session_working';
-    req.session.testTimestamp = new Date().toISOString();
-    
-    req.session.save((err) => {
-        if (err) {
-            console.error('Error saving test session:', err);
-            return res.status(500).json({ error: 'Failed to save session' });
-        }
-        
-        console.log('Test session saved successfully');
-        res.json({ 
-            message: 'Test session created',
-            sessionId: req.sessionID,
-            sessionData: req.session,
-            cookies: req.headers.cookie
-        });
-    });
+    res.redirect(FRONTEND_BASE_URL);
 });
 
 // Error handling middleware

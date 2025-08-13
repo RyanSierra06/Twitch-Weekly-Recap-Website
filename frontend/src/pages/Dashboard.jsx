@@ -6,7 +6,7 @@ import StreamerTimeline from '../components/dashboard/StreamerTimeline';
 import NotFound from './NotFound';
 
 export default function Dashboard() {
-  const { user: authUser, loading: authLoading, login} = useAuth();
+  const { user: authUser, loading: authLoading, login, accessToken } = useAuth();
   const [followed, setFollowed] = useState([]);
   const [streamerProfiles, setStreamerProfiles] = useState({});
   const [vods, setVods] = useState({});
@@ -31,11 +31,18 @@ export default function Dashboard() {
     let isMounted = true;
     async function fetchData() {
       try {
-        if (!authUser) return;
-        const streamerDataRes = await fetch(`${BACKEND_BASE_URL}/api/streamer-data`, { credentials: 'include' });
+        if (!authUser || !accessToken) return;
+        
+        const streamerDataRes = await fetch(`${BACKEND_BASE_URL}/api/streamer-data`, { 
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
         if (!streamerDataRes.ok) throw new Error('Could not fetch streamer data');
         const streamerData = await streamerDataRes.json();
         const sortedFollowed = (streamerData.followed || []).sort((a, b) => new Date(a.followed_at) - new Date(b.followed_at));
+        
         if (isMounted) {
           setFollowed(sortedFollowed);
           setStreamerProfiles(streamerData.profiles || {});
@@ -48,19 +55,23 @@ export default function Dashboard() {
     }
     fetchData();
     return () => { isMounted = false; };
-  }, [authUser]);
+  }, [authUser, accessToken]);
 
   useEffect(() => {
     let isMounted = true;
     async function fetchAllVods() {
-      if (!followed.length) return;
+      if (!followed.length || !accessToken) return;
       const allVods = {};
       const vodPromises = followed.map(async (follow) => {
         const id = follow.broadcaster_id;
         try {
           const start = format(subDays(new Date(), 6), "yyyy-MM-dd'T'00:00:00'Z'");
           const end = format(new Date(), "yyyy-MM-dd'T'23:59:59'Z'");
-          const res = await fetch(`${BACKEND_BASE_URL}/api/vods?user_id=${id}&started_at=${start}&ended_at=${end}`, { credentials: 'include' });
+          const res = await fetch(`${BACKEND_BASE_URL}/api/vods?user_id=${id}&started_at=${start}&ended_at=${end}`, { 
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
           if (res.ok) {
             const data = await res.json();
             return { id, data: data.data || [] };
@@ -82,19 +93,23 @@ export default function Dashboard() {
       fetchAllVods();
     }
     return () => { isMounted = false; };
-  }, [followed]);
+  }, [followed, accessToken]);
 
   useEffect(() => {
     let isMounted = true;
     async function fetchAllClips() {
-      if (!followed.length) return;
+      if (!followed.length || !accessToken) return;
       const allClips = {};
       const start = format(subDays(new Date(), 6), "yyyy-MM-dd'T'00:00:00'Z'");
       const end = format(new Date(), "yyyy-MM-dd'T'23:59:59'Z'");
       const clipPromises = followed.map(async (follow) => {
         const id = follow.broadcaster_id;
         try {
-          const res = await fetch(`${BACKEND_BASE_URL}/api/clips?broadcaster_id=${id}&started_at=${start}&ended_at=${end}`, { credentials: 'include' });
+          const res = await fetch(`${BACKEND_BASE_URL}/api/clips?broadcaster_id=${id}&started_at=${start}&ended_at=${end}`, { 
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
           if (res.ok) {
             const data = await res.json();
             allClips[id] = data.data || {};
@@ -116,7 +131,7 @@ export default function Dashboard() {
       fetchAllClips();
     }
     return () => { isMounted = false; };
-  }, [followed]);
+  }, [followed, accessToken]);
 
   useEffect(() => {
     if (!authLoading) return;

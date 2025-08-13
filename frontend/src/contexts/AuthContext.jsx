@@ -5,16 +5,61 @@ const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [retryCount, setRetryCount] = useState(0);
+  const [accessToken, setAccessToken] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(null);
 
   const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
-  const fetchUser = async (isRetry = false) => {
-    try {
-      console.log('Fetching user data...', isRetry ? '(retry attempt)' : '');
+  // Handle tokens from URL first (for OAuth callback)
+  const handleUrlTokens = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const refreshToken = urlParams.get('refresh_token');
+    
+    if (token) {
+      console.log('Token found in URL, storing for authentication');
+      localStorage.setItem('twitch_access_token', token);
       
-      const res = await fetch(`${BACKEND_BASE_URL}/api/user`, { 
-        credentials: 'include'
+      if (refreshToken) {
+        localStorage.setItem('twitch_refresh_token', refreshToken);
+      }
+      
+      // Clear the tokens from URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      return token;
+    }
+    
+    return null;
+  };
+
+  const fetchUser = async () => {
+    try {
+      console.log('Fetching user data...');
+      
+      // First check for tokens in URL (OAuth callback)
+      const urlToken = handleUrlTokens();
+      
+      // Get stored tokens
+      const storedAccessToken = localStorage.getItem('twitch_access_token');
+      const storedRefreshToken = localStorage.getItem('twitch_refresh_token');
+      
+      // Use URL token if available, otherwise use stored token
+      const accessToken = urlToken || storedAccessToken;
+      
+      if (!accessToken) {
+        console.log('No access token found');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      
+      // Try to validate the token and get user data
+      const res = await fetch(`${BACKEND_BASE_URL}/api/user`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
       });
       
       console.log('User fetch response status:', res.status);
@@ -23,105 +68,89 @@ export function AuthProvider({ children }) {
         const data = await res.json();
         console.log('User data received:', data);
         setUser(data);
-        setRetryCount(0); // Reset retry count on success
-      } else {
-        console.log('User fetch failed with status:', res.status);
-        const errorData = await res.json().catch(() => ({}));
-        console.log('Error data:', errorData);
-        
-        // If this is a retry and we're still getting 401, try session recovery
-        if (isRetry && retryCount >= 2) {
-          console.log('Attempting session recovery...');
-          const recoverySuccess = await attemptSessionRecovery();
-          if (recoverySuccess) {
-            // Try fetching user again after recovery
-            const retryRes = await fetch(`${BACKEND_BASE_URL}/api/user`, { 
-              credentials: 'include'
-            });
-            
-            if (retryRes.ok) {
-              const retryData = await retryRes.json();
-              console.log('User data received after recovery:', retryData);
-              setUser(retryData);
-              setRetryCount(0);
-              return;
+        setAccessToken(accessToken);
+        setRefreshToken(storedRefreshToken);
+      } else if (res.status === 401 && storedRefreshToken) {
+        // Token expired, try to refresh
+        console.log('Access token expired, attempting refresh...');
+        const refreshSuccess = await refreshAccessToken(storedRefreshToken);
+        if (refreshSuccess) {
+          // Retry with new token
+          const newToken = localStorage.getItem('twitch_access_token');
+          const retryRes = await fetch(`${BACKEND_BASE_URL}/api/user`, {
+            headers: {
+              'Authorization': `Bearer ${newToken}`
             }
-          }
+          });
           
-          console.log('Session recovery failed, setting user to null');
-          setUser(null);
-          setRetryCount(0);
-        } else if (!isRetry) {
-          // First attempt failed, try retrying
-          setRetryCount(prev => prev + 1);
+          if (retryRes.ok) {
+            const retryData = await retryRes.json();
+            console.log('User data received after token refresh:', retryData);
+            setUser(retryData);
+            setAccessToken(newToken);
+            setRefreshToken(localStorage.getItem('twitch_refresh_token'));
+          } else {
+            console.log('Token refresh failed, clearing tokens');
+            clearTokens();
+            setUser(null);
+          }
         } else {
+          console.log('Token refresh failed, clearing tokens');
+          clearTokens();
           setUser(null);
         }
+      } else {
+        console.log('Authentication failed, clearing tokens');
+        clearTokens();
+        setUser(null);
       }
     } catch (error) {
       console.error('Error fetching user:', error);
-      if (!isRetry && retryCount < 3) {
-        setRetryCount(prev => prev + 1);
-      } else {
-        setUser(null);
-        setRetryCount(0);
-      }
+      clearTokens();
+      setUser(null);
     } finally {
-      if (!isRetry) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
-  const attemptSessionRecovery = async () => {
+  const refreshAccessToken = async (refreshToken) => {
     try {
-      console.log('Attempting to recover session...');
-      
-      // First check session health
-      const healthRes = await fetch(`${BACKEND_BASE_URL}/auth/session-health`, {
-        credentials: 'include'
+      const response = await fetch(`${BACKEND_BASE_URL}/auth/refresh-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
       });
       
-      if (healthRes.ok) {
-        const health = await healthRes.json();
-        console.log('Session health:', health);
-        
-        // If session exists but user data is missing, try recovery
-        if (health.sessionExists && !health.hasPassportUser && !health.hasSessionUser) {
-          const recoveryRes = await fetch(`${BACKEND_BASE_URL}/auth/recover-session`, {
-            credentials: 'include'
-          });
-          
-          if (recoveryRes.ok) {
-            const recoveryData = await recoveryRes.json();
-            console.log('Session recovery successful:', recoveryData);
-            return true;
-          }
+      if (response.ok) {
+        const tokenData = await response.json();
+        localStorage.setItem('twitch_access_token', tokenData.access_token);
+        if (tokenData.refresh_token) {
+          localStorage.setItem('twitch_refresh_token', tokenData.refresh_token);
         }
+        console.log('Access token refreshed successfully');
+        return true;
+      } else {
+        console.error('Token refresh failed:', response.status);
+        return false;
       }
-      
-      return false;
     } catch (error) {
-      console.error('Session recovery error:', error);
+      console.error('Error refreshing token:', error);
       return false;
     }
+  };
+
+  const clearTokens = () => {
+    localStorage.removeItem('twitch_access_token');
+    localStorage.removeItem('twitch_refresh_token');
+    setAccessToken(null);
+    setRefreshToken(null);
   };
 
   useEffect(() => {
     fetchUser();
   }, []);
-
-  // Retry logic for authentication
-  useEffect(() => {
-    if (retryCount > 0 && retryCount <= 3) {
-      console.log(`Retrying authentication (attempt ${retryCount}/3)...`);
-      const timer = setTimeout(() => {
-        fetchUser(true);
-      }, 1000 * retryCount); // Exponential backoff: 1s, 2s, 3s
-      
-      return () => clearTimeout(timer);
-    }
-  }, [retryCount]);
 
   const login = () => {
     console.log('Initiating login...');
@@ -131,24 +160,23 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       console.log('Logging out...');
-      await fetch(`${BACKEND_BASE_URL}/auth/logout`, { credentials: 'include' });
+      await fetch(`${BACKEND_BASE_URL}/auth/logout`);
     } catch (error) {
       console.error('Logout error:', error);
     }
+    clearTokens();
     setUser(null);
-    setRetryCount(0);
     window.location.href = '/';
   };
 
   const refreshAuth = () => {
     console.log('Manually refreshing authentication...');
-    setRetryCount(0);
     setLoading(true);
     fetchUser();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshAuth }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshAuth, accessToken, setAccessToken }}>
       {children}
     </AuthContext.Provider>
   );

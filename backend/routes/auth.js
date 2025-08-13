@@ -1,172 +1,182 @@
 import express from 'express';
-import passport from '../config/passport.js';
+import fetch from 'node-fetch';
 
 const router = express.Router();
 
-router.get('/twitch', passport.authenticate('twitch', {
-    scope: [
-        'user:read:follows',
-        'user:read:email',
-        'user:read:subscriptions',
-        'channel:read:subscriptions'
-    ]
-}));
+const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
+const TWITCH_SECRET = process.env.TWITCH_SECRET;
+const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
-router.get('/twitch/callback', (req, res, next) => {
-    passport.authenticate('twitch', (err, user, info) => {
-        if (err) {
-            console.error('OAuth callback error:', err);
-            return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
+// Generate OAuth URL for Twitch login
+router.get('/twitch', (req, res) => {
+    const state = Math.random().toString(36).substring(7);
+    const scope = 'user:read:follows user:read:email user:read:subscriptions channel:read:subscriptions';
+    
+    const authUrl = `https://id.twitch.tv/oauth2/authorize?` +
+        `client_id=${TWITCH_CLIENT_ID}&` +
+        `redirect_uri=${encodeURIComponent(process.env.TWITCH_CALLBACK_URL)}&` +
+        `response_type=code&` +
+        `scope=${encodeURIComponent(scope)}&` +
+        `state=${state}`;
+    
+    console.log('Redirecting to Twitch OAuth:', authUrl);
+    res.redirect(authUrl);
+});
+
+// OAuth callback - exchange code for token
+router.get('/twitch/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    
+    if (error) {
+        console.error('OAuth error:', error);
+        return res.redirect(`${FRONTEND_BASE_URL}/?error=auth_failed`);
+    }
+    
+    if (!code) {
+        console.error('No authorization code received');
+        return res.redirect(`${FRONTEND_BASE_URL}/?error=auth_failed`);
+    }
+    
+    try {
+        console.log('Exchanging authorization code for access token...');
+        
+        // Exchange code for access token
+        const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                client_id: TWITCH_CLIENT_ID,
+                client_secret: TWITCH_SECRET,
+                code: code,
+                grant_type: 'authorization_code',
+                redirect_uri: process.env.TWITCH_CALLBACK_URL
+            })
+        });
+        
+        if (!tokenResponse.ok) {
+            const errorText = await tokenResponse.text();
+            console.error('Token exchange failed:', tokenResponse.status, errorText);
+            return res.redirect(`${FRONTEND_BASE_URL}/?error=token_exchange_failed`);
         }
+        
+        const tokenData = await tokenResponse.json();
+        const { access_token, refresh_token } = tokenData;
+        
+        console.log('Access token received, fetching user data...');
+        
+        // Fetch user data using the access token
+        const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+            headers: {
+                'Client-ID': TWITCH_CLIENT_ID,
+                'Authorization': `Bearer ${access_token}`
+            }
+        });
+        
+        if (!userResponse.ok) {
+            console.error('Failed to fetch user data:', userResponse.status);
+            return res.redirect(`${FRONTEND_BASE_URL}/?error=user_fetch_failed`);
+        }
+        
+        const userData = await userResponse.json();
+        const user = userData.data && userData.data[0] ? userData.data[0] : null;
         
         if (!user) {
-            console.error('No user returned from OAuth');
-            return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
+            console.error('No user data returned from Twitch API');
+            return res.redirect(`${FRONTEND_BASE_URL}/?error=no_user_data`);
         }
         
-        console.log('OAuth successful, user:', user.id);
+        console.log('User authenticated successfully:', user.id, user.display_name);
         
-        req.logIn(user, (loginErr) => {
-            if (loginErr) {
-                console.error('Login error:', loginErr);
-                return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
-            }
-            
-            console.log('User logged in successfully, saving session...');
-            
-            // Store user data in session as backup
-            req.session.user = user;
-            
-            // Explicitly save the session after login
-            req.session.save((saveErr) => {
-                if (saveErr) {
-                    console.error('Session save error:', saveErr);
-                    return res.redirect(process.env.FRONTEND_BASE_URL + '/?error=auth_failed');
-                }
-                
-                console.log('User authenticated successfully:', user.id);
-                console.log('Session saved, redirecting to dashboard');
-                console.log('Session ID:', req.sessionID);
-                console.log('Session data:', req.session);
-                
-                // Set additional headers to ensure cookie is sent
-                res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-                res.setHeader('Pragma', 'no-cache');
-                res.setHeader('Expires', '0');
-                
-                // Force cookie to be set with more explicit options
-                res.cookie('connect.sid', req.sessionID, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === 'production',
-                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-                    path: '/',
-                    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-                    domain: undefined // Let browser set domain automatically
-                });
-                
-                // Add a small delay to ensure session is fully saved
-                setTimeout(() => {
-                    res.redirect(process.env.FRONTEND_BASE_URL + '/dashboard');
-                }, 100);
-            });
-        });
-    })(req, res, next);
-});
-
-router.get('/logout', (req, res) => {
-    req.logout(err => {
-        if (err) {
-            return res.status(500).json({ error: 'Error during logout' });
-        }
-        req.session.destroy(() => {
-            res.clearCookie('connect.sid', {
-                path: '/',
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-            });
-            res.redirect(process.env.FRONTEND_BASE_URL);
-        });
-    });
-});
-
-router.get('/debug', (req, res) => {
-    console.log('=== Debug endpoint called ===');
-    console.log('Session ID:', req.sessionID);
-    console.log('Session exists:', !!req.session);
-    console.log('Session data:', req.session);
-    console.log('Passport user:', req.user);
-    console.log('Cookies:', req.headers.cookie);
-    console.log('Headers:', req.headers);
-    
-    res.json({
-        sessionId: req.sessionID,
-        sessionExists: !!req.session,
-        sessionData: req.session,
-        passportUser: req.user,
-        cookies: req.headers.cookie,
-        userAgent: req.headers['user-agent'],
-        timestamp: new Date().toISOString()
-    });
-});
-
-// New endpoint to help recover sessions
-router.get('/recover-session', (req, res) => {
-    console.log('=== Session recovery endpoint called ===');
-    
-    // Check if we have any user data in the session
-    const user = req.user || req.session?.passport?.user || req.session?.user;
-    
-    if (user) {
-        console.log('Found user data, attempting to restore session...');
+        // Redirect to frontend with access token
+        const redirectUrl = `${FRONTEND_BASE_URL}/dashboard?token=${encodeURIComponent(access_token)}&refresh_token=${encodeURIComponent(refresh_token)}`;
+        res.redirect(redirectUrl);
         
-        // Ensure user data is properly stored in all locations
-        req.session.user = user;
-        if (!req.session.passport) {
-            req.session.passport = {};
-        }
-        req.session.passport.user = user;
-        
-        req.session.save((err) => {
-            if (err) {
-                console.error('Error saving recovered session:', err);
-                return res.status(500).json({ error: 'Failed to recover session' });
-            }
-            
-            console.log('Session recovered successfully');
-            res.json({
-                success: true,
-                user: user,
-                sessionId: req.sessionID,
-                message: 'Session recovered successfully'
-            });
-        });
-    } else {
-        console.log('No user data found to recover');
-        res.status(404).json({
-            success: false,
-            message: 'No user data found to recover',
-            sessionId: req.sessionID,
-            sessionExists: !!req.session
-        });
+    } catch (error) {
+        console.error('OAuth callback error:', error);
+        res.redirect(`${FRONTEND_BASE_URL}/?error=auth_failed`);
     }
 });
 
-// New endpoint to check session health
-router.get('/session-health', (req, res) => {
-    console.log('=== Session health check ===');
+// Validate access token
+router.get('/validate-token', async (req, res) => {
+    const accessToken = req.headers.authorization?.replace('Bearer ', '');
     
-    const health = {
-        sessionId: req.sessionID,
-        sessionExists: !!req.session,
-        hasPassportUser: !!(req.user || (req.session?.passport?.user)),
-        hasSessionUser: !!req.session?.user,
-        cookies: req.headers.cookie ? 'present' : 'missing',
-        timestamp: new Date().toISOString()
-    };
+    if (!accessToken) {
+        return res.status(401).json({ error: 'No access token provided' });
+    }
     
-    console.log('Session health:', health);
-    res.json(health);
+    try {
+        const response = await fetch('https://api.twitch.tv/helix/users', {
+            headers: {
+                'Client-ID': TWITCH_CLIENT_ID,
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        
+        if (!response.ok) {
+            return res.status(401).json({ error: 'Invalid access token' });
+        }
+        
+        const data = await response.json();
+        const user = data.data && data.data[0] ? data.data[0] : null;
+        
+        if (!user) {
+            return res.status(401).json({ error: 'No user data returned' });
+        }
+        
+        res.json({ 
+            valid: true, 
+            user: user 
+        });
+        
+    } catch (error) {
+        console.error('Token validation error:', error);
+        res.status(500).json({ error: 'Token validation failed' });
+    }
+});
+
+// Refresh access token
+router.post('/refresh-token', async (req, res) => {
+    const { refresh_token } = req.body;
+    
+    if (!refresh_token) {
+        return res.status(400).json({ error: 'No refresh token provided' });
+    }
+    
+    try {
+        const response = await fetch('https://id.twitch.tv/oauth2/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                client_id: TWITCH_CLIENT_ID,
+                client_secret: TWITCH_SECRET,
+                grant_type: 'refresh_token',
+                refresh_token: refresh_token
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Token refresh failed:', response.status, errorText);
+            return res.status(401).json({ error: 'Token refresh failed' });
+        }
+        
+        const tokenData = await response.json();
+        res.json(tokenData);
+        
+    } catch (error) {
+        console.error('Token refresh error:', error);
+        res.status(500).json({ error: 'Token refresh failed' });
+    }
+});
+
+// Logout endpoint (client-side will handle token removal)
+router.get('/logout', (req, res) => {
+    res.json({ message: 'Logout successful' });
 });
 
 export default router;
