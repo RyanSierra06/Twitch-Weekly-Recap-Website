@@ -1,26 +1,31 @@
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useEffect, useState, useMemo } from 'react';
-import NotFound from './NotFound';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import SectionBox from '../components/profile/SectionBox';
 import ChannelGrid from '../components/profile/ChannelGrid';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import NotFound from './NotFound';
 
 function getAccountAge(createdAt) {
-  if (!createdAt) return '—';
   const created = new Date(createdAt);
   const now = new Date();
-  const diff = now - created;
-  const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365));
-  const months = Math.floor((diff % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
-  if (years > 0) return `${years} year${years > 1 ? 's' : ''}${months > 0 ? `, ${months} month${months > 1 ? 's' : ''}` : ''}`;
-  if (months > 0) return `${months} month${months > 1 ? 's' : ''}`;
-  return 'Less than a month';
+  const diffTime = Math.abs(now - created);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 30) {
+    return 'Less than a month';
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} month${months > 1 ? 's' : ''}`;
+  } else {
+    const years = Math.floor(diffDays / 365);
+    return `${years} year${years > 1 ? 's' : ''}`;
+  }
 }
 
 export default function Profile() {
-  const { user, loading: userLoading } = useAuth();
+  const { user, loading: userLoading, accessToken } = useAuth();
   const [followed, setFollowed] = useState([]);
   const [subscribed, setSubscribed] = useState([]);
   const [liveStatus, setLiveStatus] = useState({});
@@ -30,13 +35,17 @@ export default function Profile() {
   const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !accessToken) return;
     let isMounted = true;
     async function fetchProfileData() {
       setProfileLoaded(false);
       setError(null);
       try {
-        const followedRes = await fetch(`${BACKEND_BASE_URL}/api/followed`, { credentials: 'include' });
+        const followedRes = await fetch(`${BACKEND_BASE_URL}/api/followed`, { 
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
         if (!followedRes.ok) throw new Error('Failed to fetch followed channels');
         const followedData = await followedRes.json();
         const followedList = followedData.data || [];
@@ -46,7 +55,11 @@ export default function Profile() {
         let subscribedList = [];
         try {
           const ids = followedList.map(ch => ch.broadcaster_id).join(',');
-          const subRes = await fetch(`${BACKEND_BASE_URL}/api/check-subscription-batch?broadcaster_ids=${ids}`, { credentials: 'include' });
+          const subRes = await fetch(`${BACKEND_BASE_URL}/api/check-subscription-batch?broadcaster_ids=${ids}`, { 
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
           if (subRes.ok) {
             const subData = await subRes.json();
             subscribedList = followedList.filter(ch => subData[ch.broadcaster_id]);
@@ -63,7 +76,11 @@ export default function Profile() {
         let live = {};
         try {
           const ids = followedList.map(ch => ch.broadcaster_id).join(',');
-          const liveRes = await fetch(`${BACKEND_BASE_URL}/api/stream-status-batch?broadcaster_ids=${ids}`, { credentials: 'include' });
+          const liveRes = await fetch(`${BACKEND_BASE_URL}/api/stream-status-batch?broadcaster_ids=${ids}`, { 
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
           if (liveRes.ok) {
             const liveData = await liveRes.json();
             live = liveData;
@@ -83,7 +100,7 @@ export default function Profile() {
     }
     fetchProfileData();
     return () => { isMounted = false; };
-  }, [user]);
+  }, [user, accessToken]);
 
   const fullyLoading = userLoading || (user && !profileLoaded);
 
