@@ -15,9 +15,9 @@ export default function HomePage() {
                         from your favorite streamers
                     </h1>
                     <p className="text-xl text-[#ffc8fe] leading-relaxed max-w-4xl mx-auto">
-                        Catch up on a stream you missed with personalized daily recaps, highlight reels, top clips,
-                        and full VODs from your favorite streamers. Perfect for busy viewers who want a recap of the best moments
-                        without having to watch from start to finish.
+                        Catch up on the streams you missed from the streamers you follow with personalized recaps,
+                        highlight reels, top clips, and full VODs from the past week. Perfect for busy viewers who want to watch
+                        the best moments without having to watch full VODs from start to finish.
                     </p>
                 </section>
 
