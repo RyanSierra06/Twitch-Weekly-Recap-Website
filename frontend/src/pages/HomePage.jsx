@@ -15,9 +15,9 @@ export default function HomePage() {
                         from your favorite streamers
                     </h1>
                     <p className="text-xl text-[#ffc8fe] leading-relaxed max-w-4xl mx-auto">
-                        Get personalized weekly recaps with Al-generated highlights, top clips,
-                        and bite-sized summaries from all the streamers you follow. Perfect for
-                        busy viewers who want to stay connected.
+                        Catch up on a stream you missed with personalized daily recaps, highlight reels, top clips,
+                        and full VODs from your favorite streamers. Perfect for busy viewers who want a recap of the best moments
+                        without having to watch from start to finish.
                     </p>
                 </section>
 
@@ -65,7 +65,7 @@ export default function HomePage() {
                                 <PlayCircle className="h-9 w-9 text-white" strokeWidth={1.5} />
                             </div>
                             <h3 className="text-xl font-bold mb-1.5">Stream Highlights</h3>
-                            <p className="text-[1.05rem] text-[#ffc8fe]">A curated playlist of the best moments from each stream.</p>
+                            <p className="text-[1.05rem] text-[#ffc8fe]">An automatically curated playlist of the best moments from each stream.</p>
                         </div>
 
                         <div className="bg-[#4f3d35]/80 border border-[#b08b6f] rounded-xl text-white text-center shadow-lg p-7 flex flex-col items-center transition-transform hover:scale-105 hover:shadow-2xl duration-200">
@@ -73,7 +73,7 @@ export default function HomePage() {
                                 <Star className="h-9 w-9 text-white" strokeWidth={1.5} />
                             </div>
                             <h3 className="text-xl font-bold mb-1.5">Top 3 Clips</h3>
-                            <p className="text-[1.05rem] text-[#ffc8fe]">Best clips from each day, automatically curated for you</p>
+                            <p className="text-[1.05rem] text-[#ffc8fe]">The 3 most viewed clips from each day that viewers loved the most.</p>
                         </div>
 
                         <div className="bg-[#4f3d35]/80 border border-[#b08b6f] rounded-xl text-white text-center shadow-lg p-7 flex flex-col items-center transition-transform hover:scale-105 hover:shadow-2xl duration-200">
@@ -81,7 +81,7 @@ export default function HomePage() {
                                 <Video className="h-9 w-9 text-white" strokeWidth={1.5} />
                             </div>
                             <h3 className="text-xl font-bold mb-1.5">Full VODs</h3>
-                            <p className="text-[1.05rem] text-[#ffc8fe]">Access to complete streams whenever you want to dive deeper</p>
+                            <p className="text-[1.05rem] text-[#ffc8fe]">Access complete streams whenever you want to dive deeper.</p>
                         </div>
                     </div>
                 </section>
