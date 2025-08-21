@@ -4,7 +4,7 @@ import NavBar from './components/NavBar'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from '@vercel/analytics/react'
 
 function AppRoutes() {
     return (
