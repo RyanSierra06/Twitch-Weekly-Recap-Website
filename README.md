@@ -34,6 +34,7 @@ Each page leverages reusable React components for rendering lists of streamers, 
 
 ### Prerequisites
 - Twitch Developer account for API credentials
+- Authorized callback URL within twitch developers account
 
 ### Setup
 
