@@ -6,7 +6,6 @@ const router = express.Router();
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 
-// Middleware to validate access token
 const validateToken = async (req, res, next) => {
     const accessToken = req.headers.authorization?.replace('Bearer ', '');
     
@@ -32,8 +31,7 @@ const validateToken = async (req, res, next) => {
         if (!user) {
             return res.status(401).json({ error: 'No user data returned' });
         }
-        
-        // Add user and token to request object
+
         req.user = user;
         req.accessToken = accessToken;
         next();

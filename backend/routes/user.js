@@ -6,7 +6,6 @@ const router = express.Router();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 
-// Middleware to validate access token
 const validateToken = async (req, res, next) => {
     const accessToken = req.headers.authorization?.replace('Bearer ', '');
     
@@ -32,8 +31,7 @@ const validateToken = async (req, res, next) => {
         if (!user) {
             return res.status(401).json({ error: 'No user data returned' });
         }
-        
-        // Add user and token to request object
+
         req.user = user;
         req.accessToken = accessToken;
         next();
@@ -44,13 +42,11 @@ const validateToken = async (req, res, next) => {
     }
 };
 
-// Get current user
 router.get('/user', validateToken, (req, res) => {
     console.log('User authenticated via token:', req.user.id);
     res.json(req.user);
 });
 
-// Get followed channels
 router.get('/followed', validateToken, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -68,8 +64,7 @@ router.get('/followed', validateToken, async (req, res) => {
         }
         
         const broadcasterIds = followedData.data.map(channel => channel.broadcaster_id);
-        
-        // Fetch user profiles and live status in parallel
+
         const [userProfiles, liveStatus] = await Promise.all([
             batchGetUserInfo(broadcasterIds, accessToken),
             batchGetStreamStatus(broadcasterIds, accessToken)
@@ -97,7 +92,6 @@ router.get('/followed', validateToken, async (req, res) => {
     }
 });
 
-// Get streamer data
 router.get('/streamer-data', validateToken, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -155,7 +149,6 @@ router.get('/streamer-data', validateToken, async (req, res) => {
     }
 });
 
-// Root redirect
 router.get('/', (req, res) => {
     res.redirect(`${FRONTEND_BASE_URL}/dashboard`);
 });

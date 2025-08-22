@@ -7,7 +7,6 @@ const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const TWITCH_SECRET = process.env.TWITCH_SECRET;
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 
-// Generate OAuth URL for Twitch login
 router.get('/twitch', (req, res) => {
     const state = Math.random().toString(36).substring(7);
     const scope = 'user:read:follows user:read:email user:read:subscriptions channel:read:subscriptions';
@@ -23,7 +22,6 @@ router.get('/twitch', (req, res) => {
     res.redirect(authUrl);
 });
 
-// OAuth callback - exchange code for token
 router.get('/twitch/callback', async (req, res) => {
     const { code, state, error } = req.query;
     
@@ -39,8 +37,7 @@ router.get('/twitch/callback', async (req, res) => {
     
     try {
         console.log('Exchanging authorization code for access token...');
-        
-        // Exchange code for access token
+
         const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
             method: 'POST',
             headers: {
@@ -65,8 +62,7 @@ router.get('/twitch/callback', async (req, res) => {
         const { access_token, refresh_token } = tokenData;
         
         console.log('Access token received, fetching user data...');
-        
-        // Fetch user data using the access token
+
         const userResponse = await fetch('https://api.twitch.tv/helix/users', {
             headers: {
                 'Client-ID': TWITCH_CLIENT_ID,
@@ -88,8 +84,7 @@ router.get('/twitch/callback', async (req, res) => {
         }
         
         console.log('User authenticated successfully:', user.id, user.display_name);
-        
-        // Redirect to frontend with access token
+
         const redirectUrl = `${FRONTEND_BASE_URL}/dashboard?token=${encodeURIComponent(access_token)}&refresh_token=${encodeURIComponent(refresh_token)}`;
         res.redirect(redirectUrl);
         
@@ -99,7 +94,6 @@ router.get('/twitch/callback', async (req, res) => {
     }
 });
 
-// Validate access token
 router.get('/validate-token', async (req, res) => {
     const accessToken = req.headers.authorization?.replace('Bearer ', '');
     
@@ -137,7 +131,6 @@ router.get('/validate-token', async (req, res) => {
     }
 });
 
-// Refresh access token
 router.post('/refresh-token', async (req, res) => {
     const { refresh_token } = req.body;
     
@@ -174,7 +167,6 @@ router.post('/refresh-token', async (req, res) => {
     }
 });
 
-// Logout endpoint (client-side will handle token removal)
 router.get('/logout', (req, res) => {
     res.json({ message: 'Logout successful' });
 });

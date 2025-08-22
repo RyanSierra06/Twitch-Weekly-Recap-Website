@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function NavBar() {
-    const { user, loading, login, logout } = useAuth();
+    const { user, login, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 

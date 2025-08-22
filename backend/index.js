@@ -14,10 +14,8 @@ const app = express();
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL;
 const PORT = process.env.PORT || 4000;
 
-// Trust proxy for production
 app.set('trust proxy', 1);
 
-// Production optimizations
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -31,19 +29,17 @@ app.use(helmet({
 
 app.use(compression());
 
-// Rate limiting - more generous for web applications
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs (much more generous)
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests
-  skipFailedRequests: false, // Count failed requests
+  skipSuccessfulRequests: true,
+  skipFailedRequests: false,
 });
 app.use(limiter);
 
-// CORS configuration
 app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true,
@@ -54,20 +50,16 @@ app.use(cors({
     optionsSuccessStatus: 204
 }));
 
-// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
 app.use(express.static('public'));
 
-// Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
-// Routes
 app.use('/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', twitchRoutes);
@@ -77,11 +69,9 @@ app.get('/', function (req, res) {
     res.redirect(FRONTEND_BASE_URL);
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  
-  // Check if headers have already been sent
+
   if (!res.headersSent) {
     res.status(500).json({ 
       error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
@@ -89,18 +79,15 @@ app.use((err, req, res, next) => {
   }
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received. Starting graceful shutdown...');
   server.close(() => {

@@ -10,7 +10,6 @@ export function AuthProvider({ children }) {
 
   const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL;
 
-  // Handle tokens from URL first (for OAuth callback)
   const handleUrlTokens = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -23,8 +22,7 @@ export function AuthProvider({ children }) {
       if (refreshToken) {
         localStorage.setItem('twitch_refresh_token', refreshToken);
       }
-      
-      // Clear the tokens from URL
+
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
       
@@ -37,15 +35,12 @@ export function AuthProvider({ children }) {
   const fetchUser = async () => {
     try {
       console.log('Fetching user data...');
-      
-      // First check for tokens in URL (OAuth callback)
+
       const urlToken = handleUrlTokens();
-      
-      // Get stored tokens
+
       const storedAccessToken = localStorage.getItem('twitch_access_token');
       const storedRefreshToken = localStorage.getItem('twitch_refresh_token');
-      
-      // Use URL token if available, otherwise use stored token
+
       const accessToken = urlToken || storedAccessToken;
       
       if (!accessToken) {
@@ -54,8 +49,7 @@ export function AuthProvider({ children }) {
         setLoading(false);
         return;
       }
-      
-      // Try to validate the token and get user data
+
       const res = await fetch(`${BACKEND_BASE_URL}/api/user`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -71,11 +65,9 @@ export function AuthProvider({ children }) {
         setAccessToken(accessToken);
         setRefreshToken(storedRefreshToken);
       } else if (res.status === 401 && storedRefreshToken) {
-        // Token expired, try to refresh
         console.log('Access token expired, attempting refresh...');
         const refreshSuccess = await refreshAccessToken(storedRefreshToken);
         if (refreshSuccess) {
-          // Retry with new token
           const newToken = localStorage.getItem('twitch_access_token');
           const retryRes = await fetch(`${BACKEND_BASE_URL}/api/user`, {
             headers: {

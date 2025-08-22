@@ -6,7 +6,6 @@ const router = express.Router();
 
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 
-// Middleware to validate access token
 const validateToken = async (req, res, next) => {
     const accessToken = req.headers.authorization?.replace('Bearer ', '');
     
@@ -32,8 +31,7 @@ const validateToken = async (req, res, next) => {
         if (!user) {
             return res.status(401).json({ error: 'No user data returned' });
         }
-        
-        // Add user and token to request object
+
         req.user = user;
         req.accessToken = accessToken;
         next();
@@ -44,7 +42,6 @@ const validateToken = async (req, res, next) => {
     }
 };
 
-// Get clips for a broadcaster
 router.get('/clips', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
@@ -55,8 +52,7 @@ router.get('/clips', validateToken, async function (req, res) {
         if (!broadcaster_id || !started_at || !ended_at) {
             return res.status(400).json({ error: 'Missing required parameters' });
         }
-        
-        // First get VODs for the broadcaster
+
         const vodsCacheKey = `vods_${broadcaster_id}_${started_at}_${ended_at}`;
         const vodsUrl = `https://api.twitch.tv/helix/videos?user_id=${broadcaster_id}&type=archive&first=100`;
         const vodsData = await makeTwitchRequest(vodsUrl, accessToken, vodsCacheKey);
@@ -64,8 +60,7 @@ router.get('/clips', validateToken, async function (req, res) {
         if (!vodsData.data || !Array.isArray(vodsData.data) || vodsData.data.length === 0) {
             return res.json({ data: {} });
         }
-        
-        // Filter VODs by date range
+
         const vods = vodsData.data.filter(vod => {
             const created = new Date(vod.created_at);
             return created >= new Date(started_at) && created < new Date(ended_at);
@@ -74,14 +69,12 @@ router.get('/clips', validateToken, async function (req, res) {
         if (vods.length === 0) {
             return res.json({ data: {} });
         }
-        
-        // Create VOD map
+
         const vodMap = {};
         vods.forEach(vod => {
             vodMap[vod.id] = vod;
         });
-        
-        // Get clips for the broadcaster
+
         let allClips = [];
         let cursors = [null];
         let page = 0;
@@ -117,8 +110,7 @@ router.get('/clips', validateToken, async function (req, res) {
                 page++;
             }
         }
-        
-        // Group clips by VOD
+
         const grouped = {};
         for (const vod of vods) {
             grouped[vod.id] = {
@@ -132,8 +124,7 @@ router.get('/clips', validateToken, async function (req, res) {
                 grouped[clip.video_id].clips.push(clip);
             }
         }
-        
-        // Sort clips by view count and remove empty groups
+
         Object.values(grouped).forEach(group => {
             group.clips.sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
         });
@@ -152,7 +143,6 @@ router.get('/clips', validateToken, async function (req, res) {
     }
 });
 
-// Get VODs for a user
 router.get('/vods', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
@@ -172,8 +162,7 @@ router.get('/vods', validateToken, async function (req, res) {
         if (!data.data || !Array.isArray(data.data)) {
             return res.json({ data: [] });
         }
-        
-        // Filter VODs by date range
+
         const filtered = data.data.filter(vod => {
             const created = new Date(vod.created_at);
             return created >= new Date(started_at) && created < new Date(ended_at);
@@ -187,7 +176,6 @@ router.get('/vods', validateToken, async function (req, res) {
     }
 });
 
-// Get stream status for a broadcaster
 router.get('/stream-status', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
@@ -209,7 +197,6 @@ router.get('/stream-status', validateToken, async function (req, res) {
     }
 });
 
-// Get streams for multiple users
 router.get('/streams', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
@@ -231,7 +218,6 @@ router.get('/streams', validateToken, async function (req, res) {
     }
 });
 
-// Get streamer info
 router.get('/streamer-info', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
@@ -253,7 +239,6 @@ router.get('/streamer-info', validateToken, async function (req, res) {
     }
 });
 
-// Get followers count for a user
 router.get('/followers', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
@@ -275,7 +260,6 @@ router.get('/followers', validateToken, async function (req, res) {
     }
 });
 
-// Get following count for a user
 router.get('/following', validateToken, async function (req, res) {
     try {
         const accessToken = req.accessToken;
