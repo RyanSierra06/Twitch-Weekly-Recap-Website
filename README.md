@@ -1,6 +1,6 @@
 # Twitch Weekly Recap Website
 
-A full-stack web app that delivers personalized weekly recaps of a user’s followed Twitch streamers.  
+A full-stack web app that delivers personalized daily recaps of a user’s followed Twitch streamers from the past week.  
 The project uses **React, Vite, and Tailwind CSS** for the frontend, and **Node.js with Express** for the backend.
 
 ## Features
